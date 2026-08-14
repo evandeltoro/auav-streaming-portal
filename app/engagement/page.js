@@ -41,7 +41,16 @@ async function EngagementPageInner() {
     .limit(2000);
   assertNoError('viewer sessions query', sessionsError);
 
-  const identities = [...new Set((sessions || []).map((s) => s.participant_identity))];
+  // participant_identity isn't guaranteed to be a profiles.id -- LiveKit
+  // assigns its own identity strings to anonymous/open-comms demo viewers
+  // (e.g. "EG_yCYFV3ube5tf"), which aren't valid UUIDs and previously blew
+  // up the `.in('id', ...)` lookup below (22P02), silently zeroing out
+  // this entire report. They were never going to match a client profile
+  // anyway, so filter to UUID-shaped identities before the lookup.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const identities = [...new Set((sessions || []).map((s) => s.participant_identity))].filter((id) =>
+    UUID_RE.test(id)
+  );
   let roleById = {};
   if (identities.length > 0) {
     const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, role').in('id', identities);
