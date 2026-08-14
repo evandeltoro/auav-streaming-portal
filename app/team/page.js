@@ -1,23 +1,30 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { createAdminClient } from '../../lib/supabase/admin';
+import { withPageError, assertNoError } from '../../lib/withPageError';
 import TeamManager from '../../components/TeamManager';
 
 export default async function TeamPage() {
+  return withPageError(TeamPageInner);
+}
+
+async function TeamPageInner() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  assertNoError('profile lookup', profileError);
   if (profile?.role !== 'admin') {
     redirect('/');
   }
 
-  const { data: staffProfiles } = await supabase
+  const { data: staffProfiles, error: staffError } = await supabase
     .from('profiles')
     .select('id, full_name, role')
     .in('role', ['admin', 'inspector']);
+  assertNoError('staff profiles query', staffError);
 
   // Emails and confirmation status live in auth.users, not profiles -- pull
   // them in via the admin client so the list can show who's who and whether

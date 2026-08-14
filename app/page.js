@@ -1,22 +1,11 @@
 import { Building2, CalendarClock, Radio } from 'lucide-react';
 import { createClient } from '../lib/supabase/server';
+import { withPageError, assertNoError } from '../lib/withPageError';
 import InspectionList from '../components/InspectionList';
 import NewInspectionForm from '../components/NewInspectionForm';
 
 export default async function HomePage() {
-  try {
-    return await HomePageInner();
-  } catch (err) {
-    return (
-      <div className="page-wrap">
-        <div className="card">
-          <h1>Home page error</h1>
-          <p className="subtitle">DIAGNOSTIC: {err?.message || String(err)}</p>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{err?.stack}</pre>
-        </div>
-      </div>
-    );
-  }
+  return withPageError(HomePageInner);
 }
 
 async function HomePageInner() {
@@ -25,11 +14,12 @@ async function HomePageInner() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single();
+  assertNoError('profile lookup', profileError);
 
   const isStaff = profile?.role === 'admin' || profile?.role === 'inspector';
 
@@ -38,10 +28,7 @@ async function HomePageInner() {
     .select('id, site, asset, pilot, inspection_date, status, companies!inspections_company_id_fkey(name)')
     .in('status', ['scheduled', 'live'])
     .order('inspection_date', { ascending: false });
-
-  if (inspectionsError) {
-    throw new Error(`inspections query failed: ${inspectionsError.message} (code ${inspectionsError.code})`);
-  }
+  assertNoError('inspections query', inspectionsError);
 
   // Live inspections always float to the top, regardless of date.
   const inspections = (rawInspections || []).slice().sort((a, b) => {
@@ -52,15 +39,17 @@ async function HomePageInner() {
   let companies = [];
   let clients = [];
   if (isStaff) {
-    const { data } = await supabase.from('companies').select('id, name').order('name');
+    const { data, error: companiesError } = await supabase.from('companies').select('id, name').order('name');
+    assertNoError('companies query', companiesError);
     companies = data || [];
 
-    const { data: clientProfiles } = await supabase
+    const { data: clientProfiles, error: clientsError } = await supabase
       .from('profiles')
       .select('id, full_name, company_id')
       .eq('role', 'client')
       .eq('is_registered_surveyor', true)
       .order('full_name');
+    assertNoError('registered surveyors query', clientsError);
     clients = clientProfiles || [];
   }
 

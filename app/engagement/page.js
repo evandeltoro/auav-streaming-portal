@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
+import { withPageError, assertNoError } from '../../lib/withPageError';
 
 function formatDuration(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600);
@@ -14,12 +15,17 @@ function formatWhen(ts) {
 }
 
 export default async function EngagementPage() {
+  return withPageError(EngagementPageInner);
+}
+
+async function EngagementPageInner() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  assertNoError('profile lookup', profileError);
   const isStaff = profile?.role === 'admin' || profile?.role === 'inspector';
   if (!isStaff) {
     redirect('/');
@@ -28,16 +34,18 @@ export default async function EngagementPage() {
   // viewer_sessions is staff-read-only via RLS -- pull everything and
   // aggregate here rather than via a view, since the dataset is small
   // enough for a v1 report.
-  const { data: sessions } = await supabase
+  const { data: sessions, error: sessionsError } = await supabase
     .from('viewer_sessions')
     .select('participant_identity, joined_at, left_at, inspections(company_id, companies!inspections_company_id_fkey(name))')
     .order('joined_at', { ascending: false })
     .limit(2000);
+  assertNoError('viewer sessions query', sessionsError);
 
   const identities = [...new Set((sessions || []).map((s) => s.participant_identity))];
   let roleById = {};
   if (identities.length > 0) {
-    const { data: profiles } = await supabase.from('profiles').select('id, role').in('id', identities);
+    const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, role').in('id', identities);
+    assertNoError('viewer profiles query', profilesError);
     roleById = Object.fromEntries((profiles || []).map((p) => [p.id, p.role]));
   }
 

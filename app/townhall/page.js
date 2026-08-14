@@ -1,14 +1,20 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
+import { withPageError, assertNoError } from '../../lib/withPageError';
 
 // Clients only ever belong to one company, so they get bounced straight into
 // their room. Staff have to pick which company's town hall to join.
 export default async function TownHallIndex() {
+  return withPageError(TownHallIndexInner);
+}
+
+async function TownHallIndexInner() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data: profile } = await supabase.from('profiles').select('role, company_id').eq('id', user.id).single();
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('role, company_id').eq('id', user.id).single();
+  assertNoError('profile lookup', profileError);
   const isStaff = profile?.role === 'admin' || profile?.role === 'inspector';
 
   if (!isStaff) {
@@ -25,7 +31,8 @@ export default async function TownHallIndex() {
     redirect(`/townhall/${profile.company_id}`);
   }
 
-  const { data: companies } = await supabase.from('companies').select('id, name').order('name');
+  const { data: companies, error: companiesError } = await supabase.from('companies').select('id, name').order('name');
+  assertNoError('companies query', companiesError);
 
   return (
     <div className="page-wrap">

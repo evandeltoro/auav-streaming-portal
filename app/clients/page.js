@@ -1,30 +1,38 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { createAdminClient } from '../../lib/supabase/admin';
+import { withPageError, assertNoError } from '../../lib/withPageError';
 import ClientsManager from '../../components/ClientsManager';
 
 export default async function ClientsPage() {
+  return withPageError(ClientsPageInner);
+}
+
+async function ClientsPageInner() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single();
+  assertNoError('profile lookup', profileError);
 
   const isStaff = profile?.role === 'admin' || profile?.role === 'inspector';
   if (!isStaff) {
     redirect('/');
   }
 
-  const { data: companies } = await supabase.from('companies').select('id, name').order('name');
-  const { data: profiles } = await supabase
+  const { data: companies, error: companiesError } = await supabase.from('companies').select('id, name').order('name');
+  assertNoError('companies query', companiesError);
+  const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
     .select('id, full_name, role, company_id, is_registered_surveyor')
     .eq('role', 'client');
+  assertNoError('client profiles query', profilesError);
 
   // Emails (and confirmation status) live in auth.users, not the public
   // profiles table -- pull them in via the admin client so the client list

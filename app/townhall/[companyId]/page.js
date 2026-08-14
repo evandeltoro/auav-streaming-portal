@@ -1,25 +1,32 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/server';
+import { withPageError, assertNoError } from '../../../lib/withPageError';
 import TownHall from '../../../components/TownHall';
 
 export default async function TownHallRoom({ params }) {
+  return withPageError(() => TownHallRoomInner({ params }));
+}
+
+async function TownHallRoomInner({ params }) {
   const { companyId } = await params;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data: profile } = await supabase.from('profiles').select('role, company_id').eq('id', user.id).single();
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('role, company_id').eq('id', user.id).single();
+  assertNoError('profile lookup', profileError);
   const isStaff = profile?.role === 'admin' || profile?.role === 'inspector';
 
   if (!isStaff && profile?.company_id !== companyId) {
     redirect('/townhall');
   }
 
-  const { data: company } = await supabase
+  const { data: company, error: companyError } = await supabase
     .from('companies')
     .select('id, name, townhall_now_playing_id')
     .eq('id', companyId)
     .maybeSingle();
+  assertNoError('company lookup', companyError);
 
   if (!company) {
     return (
@@ -31,12 +38,13 @@ export default async function TownHallRoom({ params }) {
     );
   }
 
-  const { data: inspections } = await supabase
+  const { data: inspections, error: inspectionsError } = await supabase
     .from('inspections')
     .select('id, site, asset, status, inspection_date, livekit_room_name, went_live_at')
     .eq('company_id', companyId)
     .order('inspection_date', { ascending: false })
     .limit(50);
+  assertNoError('inspections query', inspectionsError);
 
   return (
     <div className="page-wrap">

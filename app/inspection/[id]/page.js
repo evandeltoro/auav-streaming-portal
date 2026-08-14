@@ -1,5 +1,6 @@
 import { createClient } from '../../../lib/supabase/server';
 import { createAdminClient } from '../../../lib/supabase/admin';
+import { withPageError, assertNoError } from '../../../lib/withPageError';
 import LiveVideo from '../../../components/LiveVideo';
 import StreamCredentials from '../../../components/StreamCredentials';
 import ViewerHistory from '../../../components/ViewerHistory';
@@ -10,6 +11,10 @@ import RadioPanel from '../../../components/RadioPanel';
 import CommsModeToggle from '../../../components/CommsModeToggle';
 
 export default async function InspectionDetailPage({ params }) {
+  return withPageError(() => InspectionDetailPageInner({ params }));
+}
+
+async function InspectionDetailPageInner({ params }) {
   const { id } = await params;
   const supabase = await createClient();
 
@@ -17,14 +22,18 @@ export default async function InspectionDetailPage({ params }) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single();
+  assertNoError('profile lookup', profileError);
 
   const isStaff = profile?.role === 'admin' || profile?.role === 'inspector';
 
+  // .single() itself errors (PGRST116) when the row doesn't exist or RLS
+  // hides it -- that's expected and handled by the not-found card below,
+  // not a real failure, so it's deliberately not passed to assertNoError.
   const { data: inspection } = await supabase
     .from('inspections')
     .select('id, site, asset, pilot, inspection_date, inspection_type, status, livekit_room_name, went_live_at, company_id, surveyor_id, open_comms, companies!inspections_company_id_fkey(name)')
@@ -47,11 +56,12 @@ export default async function InspectionDetailPage({ params }) {
   if (isStaff && (inspection.status === 'scheduled' || inspection.status === 'live')) {
     // stream_credentials is staff-only via RLS -- the anon/RLS-scoped
     // client already enforces that, no admin client needed here.
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('stream_credentials')
       .select('whip_url, stream_key')
       .eq('inspection_id', inspection.id)
       .maybeSingle();
+    if (error) console.error('stream_credentials query failed:', error.message);
     credentials = data;
   }
 
@@ -62,13 +72,14 @@ export default async function InspectionDetailPage({ params }) {
     // Row-level access was already enforced above by fetching `inspection`
     // through the RLS-scoped client -- if we got this far, this viewer is
     // allowed to see this inspection, so it's safe to fetch its recording.
-    const { data: recording } = await supabase
+    const { data: recording, error: recordingError } = await supabase
       .from('recordings')
       .select('s3_key')
       .eq('inspection_id', inspection.id)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (recordingError) console.error('recordings query failed:', recordingError.message);
 
     if (recording?.s3_key) {
       try {
@@ -91,35 +102,38 @@ export default async function InspectionDetailPage({ params }) {
   // how long, populated by the LiveKit webhook (participant_joined/left).
   let viewerHistory = [];
   if (isStaff) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('viewer_sessions')
       .select('id, display_name, participant_identity, joined_at, left_at')
       .eq('inspection_id', inspection.id)
       .order('joined_at', { ascending: false })
       .limit(50);
+    if (error) console.error('viewer_sessions query failed:', error.message);
     viewerHistory = data || [];
   }
 
   // Chat history is readable any time (it's a log), but only sendable while
   // the inspection is live -- RLS on messages already scopes this to staff
   // or same-company clients, matching who can see the inspection at all.
-  const { data: initialMessages } = await supabase
+  const { data: initialMessages, error: messagesError } = await supabase
     .from('messages')
     .select('id, sender_id, sender_name, body, image_url, created_at')
     .eq('inspection_id', inspection.id)
     .order('created_at', { ascending: true })
     .limit(200);
+  if (messagesError) console.error('messages query failed:', messagesError.message);
 
   // Staff-only history of the field camera's reported connection quality --
   // populated client-side by viewers' browsers via LiveVideo's health pings.
   let healthSamples = [];
   if (isStaff) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('stream_health_samples')
       .select('quality, sampled_at')
       .eq('inspection_id', inspection.id)
       .order('sampled_at', { ascending: true })
       .limit(1000);
+    if (error) console.error('stream_health_samples query failed:', error.message);
     healthSamples = data || [];
   }
 
@@ -128,11 +142,12 @@ export default async function InspectionDetailPage({ params }) {
   let surveyorName = null;
   let clientsForCompany = [];
   if (inspection.surveyor_id) {
-    const { data: surveyorProfile } = await supabase
+    const { data: surveyorProfile, error: surveyorError } = await supabase
       .from('profiles')
       .select('full_name')
       .eq('id', inspection.surveyor_id)
       .maybeSingle();
+    if (surveyorError) console.error('surveyor profile lookup failed:', surveyorError.message);
     surveyorName = surveyorProfile?.full_name || null;
   }
   if (isStaff) {
@@ -147,7 +162,8 @@ export default async function InspectionDetailPage({ params }) {
     query = inspection.surveyor_id
       ? query.or(`is_registered_surveyor.eq.true,id.eq.${inspection.surveyor_id}`)
       : query.eq('is_registered_surveyor', true);
-    const { data } = await query.order('full_name');
+    const { data, error } = await query.order('full_name');
+    if (error) console.error('clients-for-company query failed:', error.message);
     clientsForCompany = data || [];
   }
 
