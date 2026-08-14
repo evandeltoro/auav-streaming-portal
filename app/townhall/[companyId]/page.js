@@ -15,7 +15,11 @@ export default async function TownHallRoom({ params }) {
     redirect('/townhall');
   }
 
-  const { data: company } = await supabase.from('companies').select('id, name').eq('id', companyId).maybeSingle();
+  const { data: company } = await supabase
+    .from('companies')
+    .select('id, name, townhall_now_playing_id')
+    .eq('id', companyId)
+    .maybeSingle();
 
   if (!company) {
     return (
@@ -27,12 +31,24 @@ export default async function TownHallRoom({ params }) {
     );
   }
 
+  const { data: inspections } = await supabase
+    .from('inspections')
+    .select('id, site, asset, status, inspection_date, livekit_room_name, went_live_at')
+    .eq('company_id', companyId)
+    .order('inspection_date', { ascending: false })
+    .limit(50);
+
   return (
     <div className="page-wrap">
       <div className="card">
         <h1>{company.name} Town Hall</h1>
         <p className="subtitle">Everyone registered under {company.name} can join this room, any time</p>
-        <TownHall companyId={company.id} companyName={company.name} />
+        <TownHall
+          companyId={company.id}
+          companyName={company.name}
+          inspections={inspections || []}
+          initialNowPlayingId={company.townhall_now_playing_id}
+        />
       </div>
     </div>
   );
