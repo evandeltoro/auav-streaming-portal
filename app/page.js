@@ -33,11 +33,15 @@ async function HomePageInner() {
 
   const isStaff = profile?.role === 'admin' || profile?.role === 'inspector';
 
-  const { data: rawInspections } = await supabase
+  const { data: rawInspections, error: inspectionsError } = await supabase
     .from('inspections')
     .select('id, site, asset, pilot, inspection_date, status, companies(name)')
     .in('status', ['scheduled', 'live'])
     .order('inspection_date', { ascending: false });
+
+  if (inspectionsError) {
+    throw new Error(`inspections query failed: ${inspectionsError.message} (code ${inspectionsError.code})`);
+  }
 
   // Live inspections always float to the top, regardless of date.
   const inspections = (rawInspections || []).slice().sort((a, b) => {
