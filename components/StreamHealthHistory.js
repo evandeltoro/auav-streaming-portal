@@ -59,7 +59,7 @@ export default function StreamHealthHistory({ samples }) {
       {recentTransitions.length > 1 && (
         <div className="viewer-history-list" style={{ marginTop: 10 }}>
           {recentTransitions.map((t, i) => (
-            <div className="viewer-history-row" key={`${t.sampled_at}-${i}`} style={{ gridTemplateColumns: 'auto 1fr' }}>
+            <div className="viewer-history-row viewer-history-row-2col" key={`${t.sampled_at}-${i}`}>
               <span className={`quality-chip health-legend-${t.quality}`}>{QUALITY_LABEL[t.quality]}</span>
               <span className="viewer-history-when">{formatWhen(t.sampled_at)}</span>
             </div>

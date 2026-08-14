@@ -197,7 +197,7 @@ function ClientRow({ client, onDone }) {
           )}
           {error && <div className="error-text" style={{ minHeight: 0, marginTop: 2 }}>{error}</div>}
           {link && (
-            <div style={{ maxWidth: 340, marginTop: 4 }}>
+            <div className="link-box">
               <div className="cred-row">
                 <input readOnly value={link} onFocus={(e) => e.target.select()} />
                 <button
@@ -267,7 +267,7 @@ function AllClientsRow({ client, companies, onDone }) {
   }
 
   return (
-    <div className="viewer-history-row" style={{ gridTemplateColumns: '1fr auto auto', alignItems: 'center' }}>
+    <div className="viewer-history-row" style={{ alignItems: 'center' }}>
       <div>
         <span className="viewer-history-name">{client.full_name || 'Unnamed'}</span>
         {client.email && <span className="viewer-history-when"> · {client.email}</span>}
@@ -295,7 +295,7 @@ function AllClientsRow({ client, companies, onDone }) {
         value={companyId}
         onChange={(e) => applyCompany(e.target.value)}
         disabled={saving}
-        style={{ marginBottom: 0, minWidth: 200 }}
+        style={{ marginBottom: 0, minWidth: 200, width: 'auto' }}
       >
         <option value="">-- Unassigned --</option>
         {companies.map((c) => (

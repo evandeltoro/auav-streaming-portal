@@ -522,7 +522,7 @@ h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--text-primary); }
 .login-brand { display: flex; justify-content: center; }
 .login-brand img { height: 44px; width: auto; }
 
-input {
+input, select {
   width: 100%;
   padding: 10px 12px;
   border: 1.5px solid var(--border-strong);
@@ -533,7 +533,7 @@ input {
   background: var(--input-bg);
   color: var(--text-primary);
 }
-input:focus { outline: none; border-color: var(--auav-orange); }
+input:focus, select:focus { outline: none; border-color: var(--auav-orange); }
 
 button.primary {
   width: 100%;
@@ -697,6 +697,7 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
   border-bottom: 1px solid var(--border-color);
 }
 .viewer-history-row:last-child { border-bottom: none; }
+.viewer-history-row-2col { grid-template-columns: auto 1fr; }
 .viewer-history-name { color: var(--text-primary); font-weight: 600; }
 .viewer-history-when { color: var(--text-muted); }
 .viewer-history-duration { color: var(--text-muted); font-variant-numeric: tabular-nums; }
@@ -750,6 +751,7 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
 .cred-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 6px; color: var(--text-primary); }
 .cred-hint { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 14px; line-height: 1.4; }
 .cred-field { margin-bottom: 10px; }
+.link-box { max-width: 400px; width: 100%; margin-top: 4px; }
 .cred-field label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
 .cred-row { display: flex; gap: 8px; }
 .cred-row input {
@@ -841,10 +843,11 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
   .archive-item { flex-wrap: wrap; }
   .archive-item a { flex: 1 1 100%; }
   .archive-item .status-pill { margin-top: 6px; }
-  .row-actions { flex: 1 1 100%; justify-content: flex-start; margin-top: 6px; }
+  .row-actions { flex: 1 1 100%; flex-wrap: wrap; justify-content: flex-start; margin-top: 6px; }
 
   .cred-row { flex-direction: column; }
   .cred-row .small-btn { width: 100%; }
+  .cred-field, .link-box { max-width: none; }
 
   .form-actions { flex-direction: column; }
   .form-actions button { width: 100%; }
@@ -852,7 +855,7 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
   .stream-layout { flex-direction: column; }
   .viewer-panel { width: 100%; }
 
-  .viewer-history-row { grid-template-columns: 1fr; gap: 2px; }
+  .viewer-history-row, .viewer-history-row-2col { grid-template-columns: 1fr; gap: 2px; }
 
   .conference-grid { grid-template-columns: 1fr; }
 
@@ -863,8 +866,8 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
   .quality-badges { gap: 4px; }
   .quality-chip { font-size: 0.62rem; padding: 2px 6px; }
   .live-elapsed-badge { font-size: 0.66rem; padding: 3px 7px; }
-  .video-controls-row { bottom: 6px; left: 8px; gap: 4px; }
-  .video-control-btn { width: 28px; height: 28px; }
+  .video-controls-row { bottom: 6px; left: 8px; gap: 6px; }
+  .video-control-btn { width: 38px; height: 38px; }
   .snap-msg { font-size: 0.68rem; padding: 4px 8px; }
   .video-watermark { height: 20px; }
 
@@ -873,4 +876,32 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
 
   .health-legend { gap: 8px; font-size: 0.72rem; }
   .chat-image { max-height: 160px; }
+
+  /* Touch targets everywhere get bigger on mobile, not smaller -- a mouse
+     pointer and a fingertip need different minimums, and the previous rules
+     here (e.g. shrinking .video-control-btn to 28px) had it backwards. */
+  input, select { padding: 12px; font-size: 1rem; }
+  .small-btn { padding: 9px 14px; font-size: 0.85rem; }
+  .sidebar-link { padding: 9px 12px; }
+  button.primary, button.secondary { padding: 13px 18px; }
+}
+
+/* Extra-narrow phones (iPhone SE, compact Android) get a second pass on top
+   of the 720px tier -- the same padding/font-size that's comfortable on a
+   700px tablet-ish viewport is still too roomy at 375px and under. */
+@media (max-width: 480px) {
+  .page-wrap { padding: 14px 10px 40px; }
+  .card { padding: 14px; }
+  h1 { font-size: 1.05rem; }
+  .subtitle { font-size: 0.85rem; }
+
+  .stats-row { gap: 6px; }
+  .stat-card { padding: 8px 10px; min-width: 0; flex: 1 1 calc(50% - 6px); gap: 8px; }
+  .stat-value { font-size: 1.15rem; }
+  .stat-label { font-size: 0.72rem; }
+
+  .new-inspection-form { padding: 12px; }
+  .cred-box { padding: 12px; }
+
+  .login-card { padding: 26px 20px 20px; }
 }

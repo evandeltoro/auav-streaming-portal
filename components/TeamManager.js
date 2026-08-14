@@ -166,7 +166,7 @@ function TeamRow({ member, isSelf, onDone }) {
   }
 
   return (
-    <div className="viewer-history-row" style={{ gridTemplateColumns: '1fr auto auto', alignItems: 'center' }}>
+    <div className="viewer-history-row" style={{ alignItems: 'center' }}>
       <div>
         <span className="viewer-history-name">
           {member.full_name || 'Unnamed'} {isSelf ? '(you)' : ''}
@@ -187,7 +187,7 @@ function TeamRow({ member, isSelf, onDone }) {
           </div>
         )}
         {link && (
-          <div style={{ maxWidth: 340 }}>
+          <div className="link-box">
             <CopyField value={link} />
           </div>
         )}
@@ -196,7 +196,7 @@ function TeamRow({ member, isSelf, onDone }) {
         value={member.role}
         onChange={(e) => changeRole(e.target.value)}
         disabled={roleBusy}
-        style={{ marginBottom: 0, minWidth: 110 }}
+        style={{ marginBottom: 0, minWidth: 110, width: 'auto' }}
       >
         <option value="admin">{ROLE_LABEL.admin}</option>
         <option value="inspector">{ROLE_LABEL.inspector}</option>
