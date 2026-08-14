@@ -27,7 +27,7 @@ export default async function InspectionDetailPage({ params }) {
 
   const { data: inspection } = await supabase
     .from('inspections')
-    .select('id, site, asset, pilot, inspection_date, inspection_type, status, livekit_room_name, went_live_at, company_id, surveyor_id, open_comms, companies(name)')
+    .select('id, site, asset, pilot, inspection_date, inspection_type, status, livekit_room_name, went_live_at, company_id, surveyor_id, open_comms, companies!inspections_company_id_fkey(name)')
     .eq('id', id)
     .single();
 

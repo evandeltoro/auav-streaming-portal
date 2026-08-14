@@ -35,7 +35,7 @@ async function HomePageInner() {
 
   const { data: rawInspections, error: inspectionsError } = await supabase
     .from('inspections')
-    .select('id, site, asset, pilot, inspection_date, status, companies(name)')
+    .select('id, site, asset, pilot, inspection_date, status, companies!inspections_company_id_fkey(name)')
     .in('status', ['scheduled', 'live'])
     .order('inspection_date', { ascending: false });
 

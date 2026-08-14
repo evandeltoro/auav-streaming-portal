@@ -30,7 +30,7 @@ export default async function EngagementPage() {
   // enough for a v1 report.
   const { data: sessions } = await supabase
     .from('viewer_sessions')
-    .select('participant_identity, joined_at, left_at, inspections(company_id, companies(name))')
+    .select('participant_identity, joined_at, left_at, inspections(company_id, companies!inspections_company_id_fkey(name))')
     .order('joined_at', { ascending: false })
     .limit(2000);
 
