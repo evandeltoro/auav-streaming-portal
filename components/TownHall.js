@@ -5,6 +5,7 @@ import { Room, RoomEvent, Track } from 'livekit-client';
 import { Mic, MicOff, MonitorPlay, PhoneOff, Users, Video as VideoIcon, VideoOff, X } from 'lucide-react';
 import { LIVEKIT_URL } from '../lib/supabase/config';
 import { createClient } from '../lib/supabase/client';
+import { filterRegularDevices } from '../lib/audioDevices';
 import LiveVideo from './LiveVideo';
 
 const STATUS_LABEL = { scheduled: 'Scheduled', live: 'LIVE', completed: 'Completed', archived: 'Archived' };
@@ -135,8 +136,8 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
   async function refreshDevices() {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      setInputDevices(devices.filter((d) => d.kind === 'audioinput'));
-      if (outputSupported) setOutputDevices(devices.filter((d) => d.kind === 'audiooutput'));
+      setInputDevices(filterRegularDevices(devices.filter((d) => d.kind === 'audioinput')));
+      if (outputSupported) setOutputDevices(filterRegularDevices(devices.filter((d) => d.kind === 'audiooutput')));
     } catch {
       // labels populate once mic/cam permission is granted -- already the
       // case by the time this runs, but harmless if it silently no-ops.

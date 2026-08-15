@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Room, RoomEvent } from 'livekit-client';
 import { Mic, MicOff, PhoneOff, Radio as RadioIcon } from 'lucide-react';
 import { LIVEKIT_URL } from '../lib/supabase/config';
+import { filterRegularDevices } from '../lib/audioDevices';
 
 // Voice comms between the assigned surveyor and the field inspector's
 // streaming laptop, over the puck's Channel 2. This connects to a room
@@ -37,9 +38,9 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
   async function refreshDevices() {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      setInputDevices(devices.filter((d) => d.kind === 'audioinput'));
+      setInputDevices(filterRegularDevices(devices.filter((d) => d.kind === 'audioinput')));
       if (outputSupported) {
-        setOutputDevices(devices.filter((d) => d.kind === 'audiooutput'));
+        setOutputDevices(filterRegularDevices(devices.filter((d) => d.kind === 'audiooutput')));
       }
     } catch {
       // device labels just won't populate until permission is granted --
