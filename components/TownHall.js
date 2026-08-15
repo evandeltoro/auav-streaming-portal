@@ -9,6 +9,27 @@ import LiveVideo from './LiveVideo';
 
 const STATUS_LABEL = { scheduled: 'Scheduled', live: 'LIVE', completed: 'Completed', archived: 'Archived' };
 
+// How many remote video feeds get decoded at once, no matter how many
+// people are actually in the room. Audio is always subscribed for everyone
+// (cheap -- tens of kbps each), but video is expensive to decode client
+// side, so only the current active speaker(s) plus anyone pinned actually
+// get a live video feed. Everyone else shows as a name tile that lights up
+// when they're talking. This is what keeps a 15-20+ person room usable
+// instead of asking every browser to decode a video stream per participant.
+const MAX_VIDEO_TILES = 4;
+
+function initials(name) {
+  if (!name) return '?';
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() || '')
+      .join('') || '?'
+  );
+}
+
 // Standing multi-party video room, one per client company. Everyone
 // registered under that company (plus staff) can drop in any time -- this
 // is deliberately not scoped to a specific inspection, unlike RadioPanel.
@@ -18,8 +39,10 @@ const STATUS_LABEL = { scheduled: 'Scheduled', live: 'LIVE', completed: 'Complet
 export default function TownHall({ companyId, companyName, inspections = [], initialNowPlayingId = null }) {
   const gridRef = useRef(null);
   const roomRef = useRef(null);
-  const tilesRef = useRef(new Map()); // identity -> tile wrapper element
+  const tilesRef = useRef(new Map()); // identity -> { wrapper, avatar, videoEl }
   const audioElsRef = useRef(new Map()); // track.sid -> audio element
+  const pinnedRef = useRef(null); // identity currently pinned, or null
+  const activeSpeakersRef = useRef(new Set()); // identities currently speaking ('you' for local)
   const [status, setStatus] = useState('connecting'); // connecting | connected | error | ended
   const [errorMsg, setErrorMsg] = useState('');
   const [micOn, setMicOn] = useState(true);
@@ -120,26 +143,78 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
     }
   }
 
-  function tileFor(participant) {
-    let tile = tilesRef.current.get(participant.identity);
+  // Every participant gets a tile as soon as they're known about, whether
+  // or not their video is currently subscribed -- it starts as an avatar
+  // (initials) and swaps to a <video> element only while their feed is
+  // actually subscribed. Clicking a remote tile pins/unpins it.
+  function tileFor(identity, name) {
+    let tile = tilesRef.current.get(identity);
     if (!tile) {
-      tile = document.createElement('div');
-      tile.className = 'conference-tile';
+      const wrapper = document.createElement('div');
+      wrapper.className = 'conference-tile';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'conference-avatar';
+      avatar.textContent = initials(name);
+      wrapper.appendChild(avatar);
+
       const tag = document.createElement('span');
       tag.className = 'conference-name-tag';
-      tag.textContent = participant.name || 'Someone';
-      tile.appendChild(tag);
-      gridRef.current?.appendChild(tile);
-      tilesRef.current.set(participant.identity, tile);
+      tag.textContent = name || 'Someone';
+      wrapper.appendChild(tag);
+
+      if (identity !== 'you') {
+        wrapper.classList.add('conference-tile-pinnable');
+        wrapper.title = 'Click to pin/unpin their video';
+        wrapper.addEventListener('click', () => togglePin(identity));
+      }
+
+      gridRef.current?.appendChild(wrapper);
+      tile = { wrapper, avatar, tag, videoEl: null };
+      tilesRef.current.set(identity, tile);
+    } else if (name) {
+      tile.tag.textContent = name;
+      tile.avatar.textContent = initials(name);
     }
     return tile;
   }
 
-  function attachVideo(track, participant) {
-    const tile = tileFor(participant);
+  function setSpeaking(identity, speaking) {
+    tilesRef.current.get(identity)?.wrapper.classList.toggle('conference-tile-speaking', speaking);
+  }
+
+  function setPinnedVisual(identity, pinned) {
+    tilesRef.current.get(identity)?.wrapper.classList.toggle('conference-tile-pinned', pinned);
+  }
+
+  function togglePin(identity) {
+    if (pinnedRef.current === identity) {
+      setPinnedVisual(identity, false);
+      pinnedRef.current = null;
+    } else {
+      if (pinnedRef.current) setPinnedVisual(pinnedRef.current, false);
+      pinnedRef.current = identity;
+      setPinnedVisual(identity, true);
+    }
+    applyVideoPolicy();
+  }
+
+  function attachVideo(track, identity, name) {
+    const tile = tileFor(identity, name);
     const el = track.attach();
     el.className = 'conference-video';
-    tile.insertBefore(el, tile.firstChild);
+    tile.wrapper.insertBefore(el, tile.avatar);
+    tile.avatar.style.display = 'none';
+    tile.videoEl = el;
+  }
+
+  function detachVideoTile(identity) {
+    const tile = tilesRef.current.get(identity);
+    if (tile?.videoEl) {
+      tile.videoEl.remove();
+      tile.videoEl = null;
+      tile.avatar.style.display = '';
+    }
   }
 
   function attachAudio(track) {
@@ -165,12 +240,48 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
     }
   }
 
-  function removeParticipantTile(participant) {
-    const tile = tilesRef.current.get(participant.identity);
+  function removeParticipantTile(identity) {
+    const tile = tilesRef.current.get(identity);
     if (tile) {
-      tile.remove();
-      tilesRef.current.delete(participant.identity);
+      tile.wrapper.remove();
+      tilesRef.current.delete(identity);
     }
+    if (pinnedRef.current === identity) pinnedRef.current = null;
+    activeSpeakersRef.current.delete(identity);
+  }
+
+  // Decides, out of everyone currently in the room, whose video actually
+  // gets subscribed: the pinned participant (if any) always gets a slot,
+  // the rest are filled by current active speakers, up to MAX_VIDEO_TILES
+  // total. Re-run any time speakers change, someone (un)pins, or a new
+  // video track shows up. Local video never consumes a slot -- it's
+  // rendered from the local camera, not subscribed over the network.
+  function applyVideoPolicy() {
+    const room = roomRef.current;
+    if (!room) return;
+
+    const wanted = new Set();
+    if (pinnedRef.current && pinnedRef.current !== 'you') wanted.add(pinnedRef.current);
+    for (const identity of activeSpeakersRef.current) {
+      if (identity === 'you') continue;
+      if (wanted.size >= MAX_VIDEO_TILES) break;
+      wanted.add(identity);
+    }
+
+    room.remoteParticipants.forEach((participant) => {
+      participant.videoTrackPublications.forEach((pub) => {
+        const shouldSubscribe = wanted.has(participant.identity);
+        if (pub.isSubscribed !== shouldSubscribe) {
+          pub.setSubscribed(shouldSubscribe);
+        }
+      });
+    });
+  }
+
+  function subscribeAllAudio(participant) {
+    participant.audioTrackPublications.forEach((pub) => {
+      if (!pub.isSubscribed) pub.setSubscribed(true);
+    });
   }
 
   useEffect(() => {
@@ -190,26 +301,64 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
         roomRef.current = room;
 
         room.on(RoomEvent.TrackSubscribed, (track, _pub, participant) => {
-          if (track.kind === Track.Kind.Video) attachVideo(track, participant);
+          if (track.kind === Track.Kind.Video) attachVideo(track, participant.identity, participant.name);
           else attachAudio(track);
         });
-        room.on(RoomEvent.TrackUnsubscribed, (track) => detachTrack(track));
-        room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-          removeParticipantTile(participant);
+        room.on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => {
+          if (track.kind === Track.Kind.Video) detachVideoTile(participant.identity);
+          detachTrack(track);
+        });
+        // Audio always subscribes the moment it's published -- comms stay
+        // on for everyone regardless of room size. Video is left to
+        // applyVideoPolicy() to decide.
+        room.on(RoomEvent.TrackPublished, (publication) => {
+          if (publication.kind === Track.Kind.Audio) {
+            publication.setSubscribed(true);
+          } else {
+            applyVideoPolicy();
+          }
+        });
+        room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+          activeSpeakersRef.current.forEach((identity) => setSpeaking(identity, false));
+          const nextKeys = new Set(
+            speakers.map((p) => (p.identity === room.localParticipant.identity ? 'you' : p.identity))
+          );
+          activeSpeakersRef.current = nextKeys;
+          nextKeys.forEach((identity) => setSpeaking(identity, true));
+          applyVideoPolicy();
+        });
+        room.on(RoomEvent.ParticipantConnected, (participant) => {
+          tileFor(participant.identity, participant.name);
           setCount(room.remoteParticipants.size + 1);
         });
-        room.on(RoomEvent.ParticipantConnected, () => setCount(room.remoteParticipants.size + 1));
+        room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+          removeParticipantTile(participant.identity);
+          setCount(room.remoteParticipants.size + 1);
+          applyVideoPolicy();
+        });
         room.on(RoomEvent.Disconnected, () => {
           if (!cancelled) setStatus('ended');
         });
 
-        await room.connect(LIVEKIT_URL, data.token);
+        // autoSubscribe: false -- video subscriptions are managed by hand
+        // (applyVideoPolicy) instead of blindly pulling every stream.
+        await room.connect(LIVEKIT_URL, data.token, { autoSubscribe: false });
         await room.localParticipant.setCameraEnabled(true);
         await room.localParticipant.setMicrophoneEnabled(true);
 
         room.localParticipant.videoTrackPublications.forEach((pub) => {
-          if (pub.track) attachVideo(pub.track, { identity: 'you', name: 'You' });
+          if (pub.track) attachVideo(pub.track, 'you', 'You');
         });
+
+        // Participants (and tracks) already in the room when we joined
+        // don't replay as events -- walk the initial state once to create
+        // their tiles and subscribe their audio, then let the video policy
+        // decide who gets a live feed.
+        room.remoteParticipants.forEach((participant) => {
+          tileFor(participant.identity, participant.name);
+          subscribeAllAudio(participant);
+        });
+        applyVideoPolicy();
 
         if (cancelled) {
           room.disconnect();
@@ -233,10 +382,12 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
       cancelled = true;
       roomRef.current?.disconnect();
       roomRef.current = null;
-      tilesRef.current.forEach((el) => el.remove());
+      tilesRef.current.forEach((t) => t.wrapper.remove());
       tilesRef.current.clear();
       audioElsRef.current.forEach((el) => el.remove());
       audioElsRef.current.clear();
+      pinnedRef.current = null;
+      activeSpeakersRef.current = new Set();
     };
   }, [companyId]);
 
@@ -373,6 +524,7 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
           <span className="meta-line" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <Users size={14} /> {count} in the room
           </span>
+          <span className="meta-line">Click a tile to pin their video</span>
         </div>
       )}
       {status === 'connected' && inputDevices.length > 1 && (
