@@ -160,7 +160,7 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
             </button>
           </div>
 
-          {inputDevices.length > 1 && (
+          {inputDevices.length > 0 && (
             <div className="cred-field">
               <label>Microphone (select the comHub puck if it's paired)</label>
               <select value={selectedInput} onChange={(e) => changeInput(e.target.value)}>
@@ -174,7 +174,7 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
             </div>
           )}
 
-          {outputSupported && outputDevices.length > 1 && (
+          {outputSupported && outputDevices.length > 0 && (
             <div className="cred-field">
               <label>Speaker output (select the comHub puck to route into Channel 2)</label>
               <select value={selectedOutput} onChange={(e) => changeOutput(e.target.value)}>

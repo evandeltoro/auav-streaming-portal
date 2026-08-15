@@ -528,7 +528,7 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
           <span className="meta-line">Click a tile to pin their video</span>
         </div>
       )}
-      {status === 'connected' && inputDevices.length > 1 && (
+      {status === 'connected' && inputDevices.length > 0 && (
         <div className="cred-field">
           <label>Microphone (select the comHub puck or any paired Bluetooth mic)</label>
           <select value={selectedInput} onChange={(e) => changeInput(e.target.value)}>
@@ -541,7 +541,7 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
           </select>
         </div>
       )}
-      {status === 'connected' && outputSupported && outputDevices.length > 1 && (
+      {status === 'connected' && outputSupported && outputDevices.length > 0 && (
         <div className="cred-field">
           <label>Speaker output (select the comHub puck or any paired Bluetooth speaker)</label>
           <select value={selectedOutput} onChange={(e) => changeOutput(e.target.value)}>
