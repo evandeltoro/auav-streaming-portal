@@ -41,13 +41,15 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
   }
 
-  // Bucket is private -- sign a long-lived URL (7 days) at capture time and
-  // store that directly on the message row. Simpler than re-signing on every
-  // read, and inspections are short-lived enough that this comfortably
-  // outlasts the review window.
+  // Bucket is private -- sign a URL at capture time and store that directly
+  // on the message row. Was 7 days, which meant snapshots on an archived
+  // inspection went dead after a week even though the chat text stuck
+  // around forever. Set to effectively-permanent (10 years) instead --
+  // simpler and lower-risk than re-signing on every read, and these are
+  // inspection records that may need to stay reviewable long-term.
   const { data: signed, error: signError } = await admin.storage
     .from('chat-images')
-    .createSignedUrl(path, 60 * 60 * 24 * 7);
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
 
   if (signError || !signed?.signedUrl) {
     return NextResponse.json({ error: 'Uploaded, but failed to create a viewable link' }, { status: 500 });
