@@ -348,7 +348,9 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt }) {
       </div>
 
       <aside className="viewer-panel">
-        <div className="viewer-panel-title">Watching now ({viewers.length})</div>
+        <div className="viewer-panel-title">
+          {viewers.length} other{viewers.length === 1 ? '' : 's'} watching
+        </div>
         {viewers.length === 0 ? (
           <div className="viewer-empty">No one else is watching yet.</div>
         ) : (
