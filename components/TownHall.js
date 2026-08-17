@@ -51,8 +51,10 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
   const [count, setCount] = useState(1);
   const [inputDevices, setInputDevices] = useState([]);
   const [outputDevices, setOutputDevices] = useState([]);
+  const [videoDevices, setVideoDevices] = useState([]);
   const [selectedInput, setSelectedInput] = useState('');
   const [selectedOutput, setSelectedOutput] = useState('');
+  const [selectedVideo, setSelectedVideo] = useState('');
   const [nowPlayingId, setNowPlayingId] = useState(initialNowPlayingId);
   const [pickerValue, setPickerValue] = useState('');
   const [pickBusy, setPickBusy] = useState(false);
@@ -138,6 +140,11 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
       const devices = await navigator.mediaDevices.enumerateDevices();
       setInputDevices(filterRegularDevices(devices.filter((d) => d.kind === 'audioinput')));
       if (outputSupported) setOutputDevices(filterRegularDevices(devices.filter((d) => d.kind === 'audiooutput')));
+      // Covers HDMI capture cards (Cam Link, Elgato, etc.) showing up as a
+      // plain USB video-capture device, same as the built-in webcam --
+      // whichever one is picked here becomes what everyone else in the
+      // room sees for "You".
+      setVideoDevices(filterRegularDevices(devices.filter((d) => d.kind === 'videoinput')));
     } catch {
       // labels populate once mic/cam permission is granted -- already the
       // case by the time this runs, but harmless if it silently no-ops.
@@ -422,6 +429,16 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
     });
   }
 
+  // Swaps the camera source (built-in webcam, HDMI capture card, whatever's
+  // plugged in) for the track already being published -- LiveKit replaces
+  // the underlying media on the existing track rather than creating a new
+  // one, so the local "You" tile keeps playing without any manual
+  // re-attach here.
+  async function changeVideo(deviceId) {
+    setSelectedVideo(deviceId);
+    if (roomRef.current) await roomRef.current.switchActiveDevice('videoinput', deviceId);
+  }
+
   if (status === 'ended') {
     return (
       <div className="archive-empty">
@@ -526,6 +543,19 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
             <Users size={14} /> {count} in the room
           </span>
           <span className="meta-line">Click a tile to pin their video</span>
+        </div>
+      )}
+      {status === 'connected' && videoDevices.length > 0 && (
+        <div className="cred-field">
+          <label>Camera (built-in webcam, HDMI capture card, whatever's plugged in)</label>
+          <select value={selectedVideo} onChange={(e) => changeVideo(e.target.value)}>
+            <option value="">System default</option>
+            {videoDevices.map((d) => (
+              <option key={d.deviceId} value={d.deviceId}>
+                {d.label || 'Camera'}
+              </option>
+            ))}
+          </select>
         </div>
       )}
       {status === 'connected' && inputDevices.length > 0 && (
