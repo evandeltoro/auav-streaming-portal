@@ -515,6 +515,8 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
           </div>
           {nowPlaying.status === 'live' ? (
             <LiveVideo room={nowPlaying.livekit_room_name} inspectionId={nowPlaying.id} wentLiveAt={nowPlaying.went_live_at} />
+          ) : nowPlaying.status === 'scheduled' ? (
+            <div className="archive-empty">Not live yet -- this will appear automatically once the field camera goes live.</div>
           ) : recordingUrl ? (
             <div className="video-box">
               <video src={recordingUrl} controls playsInline />
