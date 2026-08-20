@@ -177,6 +177,11 @@ export default function TownHall({
       if (drift > 1.5) el.currentTime = target;
       if (payload.playing && el.paused) el.play().catch(() => {});
       if (!payload.playing && !el.paused) el.pause();
+      if (typeof payload.muted === 'boolean') el.muted = payload.muted;
+      return;
+    }
+    if (payload.action === 'mute') {
+      el.muted = payload.muted;
       return;
     }
     if (drift > 0.5) el.currentTime = target;
@@ -203,19 +208,25 @@ export default function TownHall({
     const onPlay = () => send('play');
     const onPause = () => send('pause');
     const onSeeked = () => send('seek', { playing: !el.paused });
+    // Native controls' mute button (and dragging volume to 0) both fire
+    // volumechange -- broadcast it either way so muting the master replay
+    // actually mutes it for everyone, not just the presenter's own tab.
+    const onVolumeChange = () => send('mute', { muted: el.muted });
     el.addEventListener('play', onPlay);
     el.addEventListener('pause', onPause);
     el.addEventListener('seeked', onSeeked);
+    el.addEventListener('volumechange', onVolumeChange);
 
     clearInterval(heartbeatRef.current);
     heartbeatRef.current = setInterval(() => {
-      send('sync', { playing: !el.paused });
+      send('sync', { playing: !el.paused, muted: el.muted });
     }, 5000);
 
     return () => {
       el.removeEventListener('play', onPlay);
       el.removeEventListener('pause', onPause);
       el.removeEventListener('seeked', onSeeked);
+      el.removeEventListener('volumechange', onVolumeChange);
       clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
     };
