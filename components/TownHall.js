@@ -62,13 +62,22 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
   const [recordingUrl, setRecordingUrl] = useState('');
   const [recordingMsg, setRecordingMsg] = useState('');
 
-  const nowPlaying = inspections.find((i) => i.id === nowPlayingId) || null;
+  // `inspections` (the prop) is a one-time snapshot from whenever this
+  // page happened to load -- if someone joined the room before a stream
+  // went live, their copy stays frozen at status: 'scheduled' forever
+  // unless something updates it. That's the bug behind "I picked a live
+  // stream to share and some people just saw a stuck/wrong message" --
+  // the *pointer* (nowPlayingId) was syncing fine, but the *data it
+  // pointed at* wasn't. Mirrored into state so the realtime subscription
+  // below can patch it in place.
+  const [inspectionsList, setInspectionsList] = useState(inspections);
+  const nowPlaying = inspectionsList.find((i) => i.id === nowPlayingId) || null;
 
-  // Persisted on companies.townhall_now_playing_id (set via PATCH below) so
-  // this syncs to everyone currently in the room AND to anyone who joins
-  // the town hall later -- same postgres_changes realtime pattern ChatBox.js
-  // uses for messages, just watching UPDATE on companies instead of INSERT
-  // on messages.
+  // Two things kept in sync here, both via postgres_changes: which
+  // inspection is picked (companies.townhall_now_playing_id) and that
+  // inspection's own live data (status / went_live_at / room name) --
+  // same pattern ChatBox.js uses for messages, just watching UPDATE
+  // instead of INSERT.
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -77,6 +86,27 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'companies', filter: `id=eq.${companyId}` },
         (payload) => setNowPlayingId(payload.new.townhall_now_playing_id)
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'inspections', filter: `company_id=eq.${companyId}` },
+        (payload) => {
+          setInspectionsList((prev) => prev.map((i) => (i.id === payload.new.id ? { ...i, ...payload.new } : i)));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'inspections', filter: `company_id=eq.${companyId}` },
+        (payload) => {
+          setInspectionsList((prev) => (prev.some((i) => i.id === payload.new.id) ? prev : [payload.new, ...prev]));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'inspections', filter: `company_id=eq.${companyId}` },
+        (payload) => {
+          setInspectionsList((prev) => prev.filter((i) => i.id !== payload.old.id));
+        }
       )
       .subscribe();
     return () => {
@@ -472,7 +502,7 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
         <div className="meta-line" style={{ marginBottom: 10 }}>
           Share a live or archived inspection with everyone in this room.
         </div>
-        {inspections.length === 0 ? (
+        {inspectionsList.length === 0 ? (
           <div className="viewer-empty">No inspections for {companyName} yet.</div>
         ) : (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -482,7 +512,7 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
               style={{ marginBottom: 0, flex: 1, minWidth: 200 }}
             >
               <option value="">-- Choose an inspection --</option>
-              {inspections.map((i) => (
+              {inspectionsList.map((i) => (
                 <option key={i.id} value={i.id}>
                   {i.site}
                   {i.asset ? ` (${i.asset})` : ''} -- {STATUS_LABEL[i.status] || i.status}
