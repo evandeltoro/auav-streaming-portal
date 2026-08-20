@@ -75,6 +75,13 @@ export default function TownHall({
   const [pickError, setPickError] = useState('');
   const [recordingUrl, setRecordingUrl] = useState('');
   const [recordingMsg, setRecordingMsg] = useState('');
+  // Incoming request the current client needs to Accept/Decline -- only
+  // rendered if this client also happens to be the presenter.
+  const [pendingRequest, setPendingRequest] = useState(null);
+  // This client's own outstanding request, if any: { requestId, status:
+  // 'waiting'|'accepted'|'declined'|'timeout', action, targetSite }
+  const [myRequestStatus, setMyRequestStatus] = useState(null);
+  const requestTimeoutRef = useRef(null);
 
   const isPresenter = Boolean(nowPlayingId) && Boolean(currentUserId) && nowPlayingBy === currentUserId;
 
@@ -113,6 +120,21 @@ export default function TownHall({
       // client ever sends these (see attachPresenterEvents below); everyone
       // else just applies whatever comes in.
       .on('broadcast', { event: 'playback' }, ({ payload }) => applyIncomingPlayback(payload))
+      // Takeover request/accept -- everyone on the channel receives these,
+      // but only the client that's actually presenting renders the Accept/
+      // Decline banner (gated at render time by isPresenter), and only the
+      // original requester's client tracks the waiting/declined state (also
+      // gated by matching requestId).
+      .on('broadcast', { event: 'takeover-request' }, ({ payload }) => setPendingRequest(payload))
+      .on('broadcast', { event: 'takeover-response' }, ({ payload }) => {
+        setMyRequestStatus((prev) =>
+          prev && prev.requestId === payload.requestId ? { ...prev, status: payload.accepted ? 'accepted' : 'declined' } : prev
+        );
+        setPendingRequest((prev) => (prev && prev.requestId === payload.requestId ? null : prev));
+      })
+      .on('broadcast', { event: 'takeover-cancel' }, ({ payload }) => {
+        setPendingRequest((prev) => (prev && prev.requestId === payload.requestId ? null : prev));
+      })
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'inspections', filter: `company_id=eq.${companyId}` },
@@ -138,6 +160,7 @@ export default function TownHall({
     pickChannelRef.current = channel;
     return () => {
       pickChannelRef.current = null;
+      clearTimeout(requestTimeoutRef.current);
       supabase.removeChannel(channel);
     };
   }, [companyId]);
@@ -234,20 +257,61 @@ export default function TownHall({
     };
   }, [nowPlaying?.id, nowPlaying?.status]);
 
-  // Someone else is already presenting -- interrupting them (to share a
-  // different stream, or to just stop their share outright) needs a
-  // confirmation, same as Teams' "X is presenting, take control?" prompt.
-  // Deliberately a plain confirm dialog rather than a request/accept flow:
-  // gets 90% of the value (no accidental hijacking) for a fraction of the
-  // complexity of a pending-request/timeout/disconnect state machine.
-  function confirmTakeoverIfNeeded(actionLabel) {
-    if (!nowPlayingId || !nowPlayingBy || nowPlayingBy === currentUserId) return true;
-    return window.confirm(`${nowPlayingByName || 'Someone'} is currently sharing ${nowPlaying?.site || 'a stream'}. ${actionLabel}?`);
+  // Someone else is already presenting -- nobody can unilaterally switch or
+  // stop their share. It has to go through them: send a request over the
+  // same broadcast channel, they get an Accept/Decline banner, and only an
+  // explicit Accept actually commits the change. No override for staff --
+  // this applies to everyone.
+  function requestTakeover(action, targetId, targetSite) {
+    const requestId = `${currentUserId}-${Date.now()}`;
+    setMyRequestStatus({ requestId, status: 'waiting', action, targetSite });
+    pickChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'takeover-request',
+      payload: { requestId, requesterId: currentUserId, requesterName: currentUserName, action, targetId: targetId || null, targetSite },
+    });
+    clearTimeout(requestTimeoutRef.current);
+    requestTimeoutRef.current = setTimeout(() => {
+      setMyRequestStatus((prev) => (prev && prev.requestId === requestId && prev.status === 'waiting' ? { ...prev, status: 'timeout' } : prev));
+    }, 30000);
   }
 
-  async function pickStream(id) {
-    if (id && !confirmTakeoverIfNeeded('Take over')) return;
-    if (!id && !confirmTakeoverIfNeeded('Stop their share')) return;
+  function cancelMyRequest() {
+    clearTimeout(requestTimeoutRef.current);
+    if (myRequestStatus) {
+      pickChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'takeover-cancel',
+        payload: { requestId: myRequestStatus.requestId },
+      });
+    }
+    setMyRequestStatus(null);
+  }
+
+  // Presenter's side: Accept actually performs the switch/stop (via the
+  // normal direct path below, since by definition the presenter owns the
+  // current share); Decline just notifies the requester.
+  async function respondToRequest(accept) {
+    const req = pendingRequest;
+    if (!req) return;
+    setPendingRequest(null);
+    pickChannelRef.current?.send({
+      type: 'broadcast',
+      event: 'takeover-response',
+      payload: { requestId: req.requestId, accepted: accept },
+    });
+    if (accept) {
+      await pickStream(req.action === 'stop' ? null : req.targetId, { skipGuard: true });
+    }
+  }
+
+  async function pickStream(id, opts = {}) {
+    // Someone else owns the current share -- can't act directly, send a
+    // request instead (unless this call IS the presenter's own accept).
+    if (!opts.skipGuard && nowPlayingId && nowPlayingBy && nowPlayingBy !== currentUserId) {
+      requestTakeover(id ? 'switch' : 'stop', id, id ? inspectionsList.find((i) => i.id === id)?.site || '' : '');
+      return;
+    }
     setPickError('');
     setPickBusy(true);
     const res = await fetch(`/api/companies/${companyId}/townhall-now-playing`, {
@@ -616,6 +680,17 @@ export default function TownHall({
         </div>
         {inspectionsList.length === 0 ? (
           <div className="viewer-empty">No inspections for {companyName} yet.</div>
+        ) : myRequestStatus?.status === 'waiting' ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span className="spinner dark" />
+            <span className="meta-line">
+              Waiting for {nowPlayingByName || 'the presenter'} to approve{' '}
+              {myRequestStatus.action === 'stop' ? 'stopping their share' : `switching to "${myRequestStatus.targetSite}"`}...
+            </span>
+            <button type="button" className="small-btn" onClick={cancelMyRequest}>
+              Cancel
+            </button>
+          </div>
         ) : (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <select
@@ -637,17 +712,43 @@ export default function TownHall({
               disabled={!pickerValue || pickBusy}
               onClick={() => pickStream(pickerValue)}
             >
-              {pickBusy && <span className="spinner dark" />} Show to Everyone
+              {pickBusy && <span className="spinner dark" />}
+              {nowPlaying && nowPlayingBy && nowPlayingBy !== currentUserId ? 'Request to Share' : 'Show to Everyone'}
             </button>
             {nowPlaying && (
               <button type="button" className="small-btn end-live" disabled={pickBusy} onClick={() => pickStream(null)}>
-                <X size={14} /> Stop Sharing
+                <X size={14} /> {nowPlayingBy && nowPlayingBy !== currentUserId ? 'Request Stop' : 'Stop Sharing'}
               </button>
             )}
           </div>
         )}
+        {(myRequestStatus?.status === 'declined' || myRequestStatus?.status === 'timeout') && (
+          <div className="meta-line" style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center' }}>
+            {myRequestStatus.status === 'declined' ? 'Your request was declined.' : 'No response -- request timed out.'}
+            <button type="button" className="small-btn" onClick={() => setMyRequestStatus(null)}>
+              Dismiss
+            </button>
+          </div>
+        )}
         {pickError && <div className="error-text">{pickError}</div>}
       </div>
+
+      {isPresenter && pendingRequest && (
+        <div className="card" style={{ marginBottom: 14, borderTopColor: 'var(--auav-orange, #f37021)' }}>
+          <div className="viewer-history-title" style={{ marginBottom: 8 }}>
+            {pendingRequest.requesterName || 'Someone'} wants to{' '}
+            {pendingRequest.action === 'stop' ? 'stop your share' : `switch the share to "${pendingRequest.targetSite}"`}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="small-btn go-live" onClick={() => respondToRequest(true)}>
+              Accept
+            </button>
+            <button type="button" className="small-btn end-live" onClick={() => respondToRequest(false)}>
+              Decline
+            </button>
+          </div>
+        </div>
+      )}
 
       {nowPlaying && (
         <div className="card" style={{ marginBottom: 14, borderTopColor: 'var(--auav-orange, #f37021)' }}>
