@@ -37,13 +37,25 @@ function initials(name) {
 // Tracks are attached straight into the DOM (same pattern as RadioPanel /
 // LiveVideo) rather than kept in React state, since LiveKit's attach/detach
 // already returns/owns the media element.
-export default function TownHall({ companyId, companyName, inspections = [], initialNowPlayingId = null }) {
+export default function TownHall({
+  companyId,
+  companyName,
+  inspections = [],
+  initialNowPlayingId = null,
+  initialNowPlayingBy = null,
+  initialNowPlayingByName = null,
+  currentUserId = null,
+  currentUserName = '',
+}) {
   const gridRef = useRef(null);
   const roomRef = useRef(null);
   const tilesRef = useRef(new Map()); // identity -> { wrapper, avatar, videoEl }
   const audioElsRef = useRef(new Map()); // track.sid -> audio element
   const pinnedRef = useRef(null); // identity currently pinned, or null
   const activeSpeakersRef = useRef(new Set()); // identities currently speaking ('you' for local)
+  const pickChannelRef = useRef(null); // realtime channel, also used for playback broadcast
+  const presenterVideoRef = useRef(null); // <video> element, role depends on isPresenter
+  const heartbeatRef = useRef(null); // presenter's periodic sync-position interval
   const [status, setStatus] = useState('connecting'); // connecting | connected | error | ended
   const [errorMsg, setErrorMsg] = useState('');
   const [micOn, setMicOn] = useState(true);
@@ -56,11 +68,15 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
   const [selectedOutput, setSelectedOutput] = useState('');
   const [selectedVideo, setSelectedVideo] = useState('');
   const [nowPlayingId, setNowPlayingId] = useState(initialNowPlayingId);
+  const [nowPlayingBy, setNowPlayingBy] = useState(initialNowPlayingBy);
+  const [nowPlayingByName, setNowPlayingByName] = useState(initialNowPlayingByName);
   const [pickerValue, setPickerValue] = useState('');
   const [pickBusy, setPickBusy] = useState(false);
   const [pickError, setPickError] = useState('');
   const [recordingUrl, setRecordingUrl] = useState('');
   const [recordingMsg, setRecordingMsg] = useState('');
+
+  const isPresenter = Boolean(nowPlayingId) && Boolean(currentUserId) && nowPlayingBy === currentUserId;
 
   // `inspections` (the prop) is a one-time snapshot from whenever this
   // page happened to load -- if someone joined the room before a stream
@@ -85,8 +101,18 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'companies', filter: `id=eq.${companyId}` },
-        (payload) => setNowPlayingId(payload.new.townhall_now_playing_id)
+        (payload) => {
+          setNowPlayingId(payload.new.townhall_now_playing_id);
+          setNowPlayingBy(payload.new.townhall_now_playing_by);
+          setNowPlayingByName(payload.new.townhall_now_playing_by_name);
+        }
       )
+      // Playback sync for shared recordings -- pure pub/sub over the same
+      // socket, not a DB write, since play/pause/seek can fire many times a
+      // minute and none of it needs to persist. Only the presenter's own
+      // client ever sends these (see attachPresenterEvents below); everyone
+      // else just applies whatever comes in.
+      .on('broadcast', { event: 'playback' }, ({ payload }) => applyIncomingPlayback(payload))
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'inspections', filter: `company_id=eq.${companyId}` },
@@ -109,10 +135,81 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
         }
       )
       .subscribe();
+    pickChannelRef.current = channel;
     return () => {
+      pickChannelRef.current = null;
       supabase.removeChannel(channel);
     };
   }, [companyId]);
+
+  // Applies a play/pause/seek/sync event that came from the presenter's
+  // client to this viewer's own <video> element. Never runs for the
+  // presenter themselves (self broadcast is off by default on Supabase
+  // channels), so there's no feedback loop to guard against here.
+  function applyIncomingPlayback(payload) {
+    const el = presenterVideoRef.current;
+    if (!el || !payload) return;
+    const latencyAdjust = payload.action === 'play' || payload.action === 'sync' ? (Date.now() - payload.sentAt) / 1000 : 0;
+    const target = Math.max(0, (payload.time || 0) + Math.max(0, latencyAdjust));
+    const drift = Math.abs(el.currentTime - target);
+    if (payload.action === 'sync') {
+      // Heartbeat, mainly for viewers who joined mid-playback -- only
+      // correct if actually drifted, so it doesn't cause visible jitter
+      // for everyone else who's already in sync.
+      if (drift > 1.5) el.currentTime = target;
+      if (payload.playing && el.paused) el.play().catch(() => {});
+      if (!payload.playing && !el.paused) el.pause();
+      return;
+    }
+    if (drift > 0.5) el.currentTime = target;
+    if (payload.action === 'play') el.play().catch(() => {});
+    if (payload.action === 'pause') el.pause();
+    if (payload.action === 'seek') {
+      if (payload.playing) el.play().catch(() => {});
+      else el.pause();
+    }
+  }
+
+  // Presenter-side: wires the shared <video> element's own play/pause/seeked
+  // events to broadcast out over the channel, plus a low-frequency heartbeat
+  // so anyone who joins mid-playback catches up within a few seconds instead
+  // of staying stuck at 0:00 until the next real event.
+  function attachPresenterEvents(el) {
+    function send(action, extra) {
+      pickChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'playback',
+        payload: { action, time: el.currentTime, sentAt: Date.now(), ...extra },
+      });
+    }
+    const onPlay = () => send('play');
+    const onPause = () => send('pause');
+    const onSeeked = () => send('seek', { playing: !el.paused });
+    el.addEventListener('play', onPlay);
+    el.addEventListener('pause', onPause);
+    el.addEventListener('seeked', onSeeked);
+
+    clearInterval(heartbeatRef.current);
+    heartbeatRef.current = setInterval(() => {
+      send('sync', { playing: !el.paused });
+    }, 5000);
+
+    return () => {
+      el.removeEventListener('play', onPlay);
+      el.removeEventListener('pause', onPause);
+      el.removeEventListener('seeked', onSeeked);
+      clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    };
+  }
+
+  useEffect(() => {
+    if (!isPresenter) return;
+    const el = presenterVideoRef.current;
+    if (!el) return;
+    return attachPresenterEvents(el);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPresenter, recordingUrl]);
 
   useEffect(() => {
     setRecordingUrl('');
@@ -137,7 +234,20 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
     };
   }, [nowPlaying?.id, nowPlaying?.status]);
 
+  // Someone else is already presenting -- interrupting them (to share a
+  // different stream, or to just stop their share outright) needs a
+  // confirmation, same as Teams' "X is presenting, take control?" prompt.
+  // Deliberately a plain confirm dialog rather than a request/accept flow:
+  // gets 90% of the value (no accidental hijacking) for a fraction of the
+  // complexity of a pending-request/timeout/disconnect state machine.
+  function confirmTakeoverIfNeeded(actionLabel) {
+    if (!nowPlayingId || !nowPlayingBy || nowPlayingBy === currentUserId) return true;
+    return window.confirm(`${nowPlayingByName || 'Someone'} is currently sharing ${nowPlaying?.site || 'a stream'}. ${actionLabel}?`);
+  }
+
   async function pickStream(id) {
+    if (id && !confirmTakeoverIfNeeded('Take over')) return;
+    if (!id && !confirmTakeoverIfNeeded('Stop their share')) return;
     setPickError('');
     setPickBusy(true);
     const res = await fetch(`/api/companies/${companyId}/townhall-now-playing`, {
@@ -152,6 +262,8 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
       return;
     }
     setNowPlayingId(id || null);
+    setNowPlayingBy(id ? currentUserId : null);
+    setNowPlayingByName(id ? currentUserName : null);
     setPickerValue('');
   }
 
@@ -543,13 +655,22 @@ export default function TownHall({ companyId, companyName, inspections = [], ini
             Now sharing: {nowPlaying.site}
             {nowPlaying.asset ? ` -- ${nowPlaying.asset}` : ''}
           </div>
+          {nowPlayingByName && (
+            <div className="meta-line" style={{ marginBottom: 10 }}>
+              {isPresenter ? 'You are' : nowPlayingByName + ' is'} sharing
+              {nowPlaying.status !== 'live' ? ' -- only they control play, pause, and seek' : ''}
+            </div>
+          )}
           {nowPlaying.status === 'live' ? (
             <LiveVideo room={nowPlaying.livekit_room_name} inspectionId={nowPlaying.id} wentLiveAt={nowPlaying.went_live_at} />
           ) : nowPlaying.status === 'scheduled' ? (
             <div className="archive-empty">Not live yet -- this will appear automatically once the field camera goes live.</div>
           ) : recordingUrl ? (
             <div className="video-box">
-              <video src={recordingUrl} controls playsInline />
+              {/* Non-presenters get no native controls at all -- no scrub
+                  bar, no play/pause -- so the only way playback moves for
+                  them is a broadcast from whoever picked the stream. */}
+              <video ref={presenterVideoRef} src={recordingUrl} controls={isPresenter} playsInline />
             </div>
           ) : (
             <div className="archive-empty">{recordingMsg || 'Loading recording...'}</div>

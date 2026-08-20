@@ -20,7 +20,7 @@ export async function PATCH(request, { params }) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, company_id')
+    .select('role, company_id, full_name')
     .eq('id', user.id)
     .single();
 
@@ -45,9 +45,20 @@ export async function PATCH(request, { params }) {
     }
   }
 
+  // Presenter identity is derived from the caller's own session -- never
+  // trust a client-supplied name/id here. Denormalized (name stored
+  // directly, not just the id) so every other viewer's browser can show
+  // "so-and-so is sharing" without a profiles lookup, which would get
+  // silently blocked by RLS for non-staff viewing another client's profile.
+  const presenterName = profile?.full_name || user.email;
+
   const { error } = await admin
     .from('companies')
-    .update({ townhall_now_playing_id: inspection_id || null })
+    .update(
+      inspection_id
+        ? { townhall_now_playing_id: inspection_id, townhall_now_playing_by: user.id, townhall_now_playing_by_name: presenterName }
+        : { townhall_now_playing_id: null, townhall_now_playing_by: null, townhall_now_playing_by_name: null }
+    )
     .eq('id', companyId);
 
   if (error) {
