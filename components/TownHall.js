@@ -19,17 +19,12 @@ const STATUS_LABEL = { scheduled: 'Scheduled', live: 'LIVE', completed: 'Complet
 // instead of asking every browser to decode a video stream per participant.
 const MAX_VIDEO_TILES = 4;
 
-function initials(name) {
-  if (!name) return '?';
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase() || '')
-      .join('') || '?'
-  );
-}
+// Teams-style placeholder for anyone whose video isn't currently on screen
+// (camera off, or just not an active speaker/pinned) -- a generic person
+// silhouette in a circle, instead of a plain dark box, so it reads clearly
+// as "no video" rather than looking like a broken/black feed.
+const PERSON_SILHOUETTE_SVG =
+  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8.2" r="4.2"/><path d="M4 20.2c0-4.5 3.6-7.4 8-7.4s8 2.9 8 7.4v.4H4v-.4z"/></svg>';
 
 // Standing multi-party video room, one per client company. Everyone
 // registered under that company (plus staff) can drop in any time -- this
@@ -358,9 +353,10 @@ export default function TownHall({
   }
 
   // Every participant gets a tile as soon as they're known about, whether
-  // or not their video is currently subscribed -- it starts as an avatar
-  // (initials) and swaps to a <video> element only while their feed is
-  // actually subscribed. Clicking a remote tile pins/unpins it.
+  // or not their video is currently subscribed -- it starts as a silhouette
+  // placeholder (Teams-style: gray circle, person icon, name underneath)
+  // and swaps to a <video> element only while their feed is actually
+  // subscribed. Clicking a remote tile pins/unpins it.
   function tileFor(identity, name) {
     let tile = tilesRef.current.get(identity);
     if (!tile) {
@@ -369,7 +365,7 @@ export default function TownHall({
 
       const avatar = document.createElement('div');
       avatar.className = 'conference-avatar';
-      avatar.textContent = initials(name);
+      avatar.innerHTML = `<div class="conference-avatar-circle">${PERSON_SILHOUETTE_SVG}</div>`;
       wrapper.appendChild(avatar);
 
       const tag = document.createElement('span');
@@ -388,7 +384,6 @@ export default function TownHall({
       tilesRef.current.set(identity, tile);
     } else if (name) {
       tile.tag.textContent = name;
-      tile.avatar.textContent = initials(name);
     }
     return tile;
   }
@@ -553,16 +548,31 @@ export default function TownHall({
         room.on(RoomEvent.Disconnected, () => {
           if (!cancelled) setStatus('ended');
         });
+        // Local camera on/off never fires TrackSubscribed/Unsubscribed --
+        // those are remote-only. Without this, toggling your own camera off
+        // left the last frame of your own <video> element sitting there
+        // (reads as a black/frozen tile) since nothing ever detached it.
+        room.on(RoomEvent.LocalTrackPublished, (publication) => {
+          if (publication.kind === Track.Kind.Video && publication.track) {
+            attachVideo(publication.track, 'you', 'You');
+          }
+        });
+        room.on(RoomEvent.LocalTrackUnpublished, (publication) => {
+          if (publication.kind === Track.Kind.Video) {
+            detachVideoTile('you');
+            if (publication.track) detachTrack(publication.track);
+          }
+        });
 
         // autoSubscribe: false -- video subscriptions are managed by hand
         // (applyVideoPolicy) instead of blindly pulling every stream.
         await room.connect(LIVEKIT_URL, data.token, { autoSubscribe: false });
         await room.localParticipant.setCameraEnabled(true);
         await room.localParticipant.setMicrophoneEnabled(true);
-
-        room.localParticipant.videoTrackPublications.forEach((pub) => {
-          if (pub.track) attachVideo(pub.track, 'you', 'You');
-        });
+        // No explicit attach here for the local camera track -- the
+        // LocalTrackPublished listener above (registered before connect())
+        // already caught this publish and attached it; attaching again here
+        // would leave a second, orphaned <video> element behind it.
 
         // Participants (and tracks) already in the room when we joined
         // don't replay as events -- walk the initial state once to create
