@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from './Toast';
 
 const ROLE_LABEL = { admin: 'Admin', inspector: 'Inspector' };
 
@@ -102,6 +103,7 @@ function InviteForm({ onDone }) {
 }
 
 function TeamRow({ member, isSelf, onDone }) {
+  const showToast = useToast();
   const [busy, setBusy] = useState(false);
   const [roleBusy, setRoleBusy] = useState(false);
   const [error, setError] = useState('');
@@ -142,8 +144,10 @@ function TeamRow({ member, isSelf, onDone }) {
     setBusy(false);
     if (!res.ok) {
       setError(data.error || 'Failed to remove access');
+      showToast(data.error || 'Failed to remove access', 'error');
       return;
     }
+    showToast(`Removed access for ${member.full_name || member.email || 'that team member'}`, 'success');
     onDone();
   }
 
@@ -160,8 +164,10 @@ function TeamRow({ member, isSelf, onDone }) {
     setRoleBusy(false);
     if (!res.ok) {
       setError(data.error || 'Failed to change role');
+      showToast(data.error || 'Failed to change role', 'error');
       return;
     }
+    showToast(`${member.full_name || member.email || 'Team member'} is now ${ROLE_LABEL[nextRole]}`, 'success');
     onDone();
   }
 

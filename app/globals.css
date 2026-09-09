@@ -843,6 +843,73 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
   z-index: 1;
 }
 
+/* Toast notifications -- shared feedback for actions that previously either
+   built their own one-off inline state or gave no confirmation at all. */
+.toast-stack {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 32px));
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1.3px solid var(--border-color);
+  border-left: 4px solid var(--auav-orange);
+  border-radius: 8px;
+  padding: 11px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 6px 24px var(--shadow-strong);
+  cursor: pointer;
+  animation: toast-in .2s ease-out;
+}
+.toast svg { flex-shrink: 0; }
+.toast-success { border-left-color: var(--success-text); }
+.toast-success svg { color: var(--success-text); }
+.toast-error { border-left-color: var(--error-text); }
+.toast-error svg { color: var(--error-text); }
+.toast-info { border-left-color: var(--auav-orange); }
+.toast-info svg { color: var(--auav-orange); }
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+@media (max-width: 720px) {
+  .toast-stack { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+}
+
+/* Route-level loading skeleton (app/loading.js) -- shown by Next.js while a
+   page's server-side data fetch is in flight, instead of a blank white/dark
+   gap on navigation. Shape mirrors the page-wrap/card/h1/subtitle pattern
+   used everywhere so it doesn't look like a different app for a moment. */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.skeleton-block {
+  background: linear-gradient(90deg, var(--bg-surface-alt) 25%, var(--border-color) 37%, var(--bg-surface-alt) 63%);
+  background-size: 400px 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block { animation: none; }
+}
+.skeleton-title { width: 220px; height: 22px; margin-bottom: 10px; }
+.skeleton-subtitle { width: 320px; height: 14px; margin-bottom: 22px; }
+.skeleton-row { height: 54px; border-radius: 8px; margin-bottom: 10px; }
+
 /* Sidebar collapses to a top bar on small screens */
 @media (max-width: 720px) {
   .app-shell { flex-direction: column; }

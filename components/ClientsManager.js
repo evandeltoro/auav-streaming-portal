@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2 } from 'lucide-react';
+import { useToast } from './Toast';
 
 function CopyLinkBox({ link, label }) {
   const [copied, setCopied] = useState(false);
@@ -120,6 +121,7 @@ function InviteForm({ companyId, onDone }) {
 }
 
 function ClientRow({ client, onDone }) {
+  const showToast = useToast();
   const [busy, setBusy] = useState(false);
   const [surveyorBusy, setSurveyorBusy] = useState(false);
   const [error, setError] = useState('');
@@ -156,8 +158,10 @@ function ClientRow({ client, onDone }) {
     setBusy(false);
     if (!res.ok) {
       setError(data.error || 'Failed to remove access');
+      showToast(data.error || 'Failed to remove access', 'error');
       return;
     }
+    showToast(`Removed access for ${client.full_name || client.email || 'that client'}`, 'success');
     onDone();
   }
 
@@ -198,16 +202,7 @@ function ClientRow({ client, onDone }) {
           {error && <div className="error-text" style={{ minHeight: 0, marginTop: 2 }}>{error}</div>}
           {link && (
             <div className="link-box">
-              <div className="cred-row">
-                <input readOnly value={link} onFocus={(e) => e.target.select()} />
-                <button
-                  type="button"
-                  className="small-btn"
-                  onClick={() => navigator.clipboard.writeText(link).catch(() => {})}
-                >
-                  Copy
-                </button>
-              </div>
+              <CopyLinkBox link={link} label="Invite link -- send this to them yourself" />
             </div>
           )}
         </div>
@@ -335,6 +330,7 @@ function AllClientsRegistry({ allClients, companies, onDone }) {
 }
 
 function NewCompanyForm({ onDone }) {
+  const showToast = useToast();
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -357,6 +353,7 @@ function NewCompanyForm({ onDone }) {
       return;
     }
 
+    showToast(`"${name}" created`, 'success');
     setName('');
     onDone();
   }
@@ -383,6 +380,7 @@ function NewCompanyForm({ onDone }) {
 
 export default function ClientsManager({ companies, clientsByCompany, allClients, isAdmin }) {
   const router = useRouter();
+  const showToast = useToast();
   const [deletingId, setDeletingId] = useState(null);
   const [deleteError, setDeleteError] = useState({});
 
@@ -401,8 +399,10 @@ export default function ClientsManager({ companies, clientsByCompany, allClients
     setDeletingId(null);
     if (!res.ok) {
       setDeleteError((prev) => ({ ...prev, [id]: data.error || 'Failed to delete company' }));
+      showToast(data.error || 'Failed to delete company', 'error');
       return;
     }
+    showToast(`"${name}" deleted`, 'success');
     refresh();
   }
 

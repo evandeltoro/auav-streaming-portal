@@ -1,5 +1,6 @@
 import './globals.css';
 import Sidebar from '../components/Sidebar';
+import { ToastProvider } from '../components/Toast';
 import { createClient } from '../lib/supabase/server';
 
 export const metadata = {
@@ -48,10 +49,12 @@ export default async function RootLayout({ children }) {
         />
       </head>
       <body>
-        <div className="app-shell">
-          <Sidebar email={email} isStaff={isStaff} isAdmin={isAdmin} />
-          <main className="app-main">{children}</main>
-        </div>
+        <ToastProvider>
+          <div className="app-shell">
+            <Sidebar email={email} isStaff={isStaff} isAdmin={isAdmin} />
+            <main className="app-main">{children}</main>
+          </div>
+        </ToastProvider>
       </body>
     </html>
   );

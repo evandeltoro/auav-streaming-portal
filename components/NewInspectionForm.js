@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from './Toast';
 
 export default function NewInspectionForm({ companies, clients }) {
   const router = useRouter();
+  const showToast = useToast();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -48,6 +50,17 @@ export default function NewInspectionForm({ companies, clients }) {
     if (!res.ok) {
       setError(data.error || 'Failed to create inspection');
       return;
+    }
+
+    // The API can create the inspection successfully but still fail to
+    // provision its OBS/LiveKit credentials (e.g. a LiveKit hiccup) --
+    // previously that warning was returned and silently dropped here, so
+    // staff wouldn't find out until they went looking for a stream key that
+    // didn't exist.
+    if (data.credentialsWarning) {
+      showToast(data.credentialsWarning, 'error', 8000);
+    } else {
+      showToast(`"${form.site}" scheduled`, 'success');
     }
 
     setOpen(false);
