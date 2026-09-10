@@ -256,6 +256,12 @@ select:focus-visible {
 h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--text-primary); }
 .subtitle { color: var(--text-muted); font-size: 0.92rem; margin: 0 0 18px; }
 
+/* Base styling for the small muted caption text used throughout the app
+   (device labels, status notes, row metadata). Previously only defined
+   scoped under .archive-item, so every other usage -- Town Hall, comms
+   panels, forms -- silently fell back to plain body text. */
+.meta-line { color: var(--text-muted); font-size: 0.85rem; line-height: 1.4; }
+
 .video-box {
   position: relative;
   width: 100%;
@@ -762,6 +768,14 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
   background: var(--input-bg);
 }
 .cred-row .small-btn { flex-shrink: 0; }
+
+/* Town Hall -- shared row/spacing patterns, pulled out of one-off inline
+   style={{}} props so this component follows the same CSS-class approach
+   as the rest of the app instead of drifting into its own thing. */
+.inline-icon-row { display: flex; align-items: center; gap: 6px; }
+.townhall-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.townhall-share-card { margin-bottom: 14px; }
+.townhall-controls-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 
 .conference-grid {
   display: grid;

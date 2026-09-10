@@ -693,7 +693,7 @@ export default function TownHall({
       {status === 'connecting' && <div className="archive-empty">Joining {companyName}'s town hall...</div>}
 
       <div className="viewer-history" style={{ marginBottom: 14 }}>
-        <div className="viewer-history-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div className="viewer-history-title inline-icon-row">
           <MonitorPlay size={16} /> Pull Up a Stream
         </div>
         <div className="meta-line" style={{ marginBottom: 10 }}>
@@ -702,7 +702,7 @@ export default function TownHall({
         {inspectionsList.length === 0 ? (
           <div className="viewer-empty">No inspections for {companyName} yet.</div>
         ) : myRequestStatus?.status === 'waiting' ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="townhall-row">
             <span className="spinner dark" />
             <span className="meta-line">
               Waiting for {nowPlayingByName || 'the presenter'} to approve{' '}
@@ -713,7 +713,7 @@ export default function TownHall({
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="townhall-row">
             <select
               value={pickerValue}
               onChange={(e) => setPickerValue(e.target.value)}
@@ -744,7 +744,7 @@ export default function TownHall({
           </div>
         )}
         {(myRequestStatus?.status === 'declined' || myRequestStatus?.status === 'timeout') && (
-          <div className="meta-line" style={{ marginTop: 6, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="meta-line townhall-row" style={{ marginTop: 6 }}>
             {myRequestStatus.status === 'declined' ? 'Your request was declined.' : 'No response -- request timed out.'}
             <button type="button" className="small-btn" onClick={() => setMyRequestStatus(null)}>
               Dismiss
@@ -755,12 +755,12 @@ export default function TownHall({
       </div>
 
       {isPresenter && pendingRequest && (
-        <div className="card" style={{ marginBottom: 14, borderTopColor: 'var(--auav-orange, #f37021)' }}>
+        <div className="card townhall-share-card">
           <div className="viewer-history-title" style={{ marginBottom: 8 }}>
             {pendingRequest.requesterName || 'Someone'} wants to{' '}
             {pendingRequest.action === 'stop' ? 'stop your share' : `switch the share to "${pendingRequest.targetSite}"`}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="townhall-row">
             <button type="button" className="small-btn go-live" onClick={() => respondToRequest(true)}>
               Accept
             </button>
@@ -772,7 +772,7 @@ export default function TownHall({
       )}
 
       {nowPlaying && (
-        <div className="card" style={{ marginBottom: 14, borderTopColor: 'var(--auav-orange, #f37021)' }}>
+        <div className="card townhall-share-card">
           <div className="viewer-history-title" style={{ marginBottom: 10 }}>
             Now sharing: {nowPlaying.site}
             {nowPlaying.asset ? ` -- ${nowPlaying.asset}` : ''}
@@ -802,7 +802,7 @@ export default function TownHall({
 
       <div className="conference-grid" ref={gridRef} />
       {status === 'connected' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+        <div className="townhall-controls-row">
           <button type="button" className="small-btn" onClick={toggleMic}>
             {micOn ? <Mic size={14} /> : <MicOff size={14} />}
             {micOn ? ' Mute' : ' Unmute'}
@@ -814,7 +814,7 @@ export default function TownHall({
           <button type="button" className="small-btn end-live" onClick={leave}>
             <PhoneOff size={14} /> Leave
           </button>
-          <span className="meta-line" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span className="meta-line inline-icon-row">
             <Users size={14} /> {count} in the room
           </span>
           <span className="meta-line">Click a tile to pin their video</span>
