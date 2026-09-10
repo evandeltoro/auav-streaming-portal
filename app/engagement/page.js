@@ -97,7 +97,7 @@ async function EngagementPageInner() {
         ) : (
           <div className="archive-list">
             {rows.map((r) => (
-              <div className="archive-item" key={r.name} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+              <div className="archive-item archive-item-stacked" key={r.name}>
                 <strong>{r.name}</strong>
                 <div className="meta-line">
                   <span>{formatDuration(r.totalSeconds)} total watch time</span>

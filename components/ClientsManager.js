@@ -425,7 +425,7 @@ export default function ClientsManager({ companies, clientsByCompany, allClients
         {companies.map((company) => {
           const clients = clientsByCompany[company.id] || [];
           return (
-            <div className="archive-item" key={company.id} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+            <div className="archive-item archive-item-stacked" key={company.id}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <strong>{company.name}</strong>
                 {isAdmin && (

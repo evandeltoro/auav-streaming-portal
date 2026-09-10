@@ -585,6 +585,11 @@ button.primary:disabled { background: #ccc; cursor: not-allowed; transform: none
   transition: border-color .15s, background .15s;
 }
 .archive-item:hover { border-color: var(--auav-orange); background: var(--bg-hover); }
+/* Modifier for rows that stack their content vertically (company/client
+   list rows, engagement report rows) instead of the default left-label,
+   right-actions layout -- was a repeated inline flexDirection/alignItems
+   override in multiple components. */
+.archive-item-stacked { flex-direction: column; align-items: stretch; }
 .archive-item a { flex: 1; min-width: 0; }
 .archive-item strong { display: block; font-size: 0.95rem; color: var(--text-primary); }
 .archive-item .meta-line {

@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Inbox } from 'lucide-react';
+import { useToast } from './Toast';
+
+const STATUS_ACTION_LABEL = { live: 'went live', completed: 'ended', archived: 'archived' };
 
 const STATUS_LABEL = {
   scheduled: 'Scheduled',
@@ -27,18 +30,35 @@ function formatDate(dateStr) {
 
 export default function InspectionList({ inspections, isStaff }) {
   const router = useRouter();
+  const showToast = useToast();
   const [busyId, setBusyId] = useState(null);
   const [search, setSearch] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
 
-  async function setStatus(id, status) {
+  async function setStatus(id, status, site) {
     setBusyId(id);
-    await fetch(`/api/inspections/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
+    let ok = false;
+    let errorMsg = 'Failed to update status';
+    try {
+      const res = await fetch(`/api/inspections/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      ok = res.ok;
+      if (!ok) {
+        const data = await res.json().catch(() => ({}));
+        errorMsg = data.error || errorMsg;
+      }
+    } catch {
+      errorMsg = 'Network error -- the change may not have gone through';
+    }
     setBusyId(null);
+    if (!ok) {
+      showToast(`"${site}": ${errorMsg}`, 'error', 6000);
+      return;
+    }
+    showToast(`"${site}" ${STATUS_ACTION_LABEL[status] || 'updated'}`, 'success');
     router.refresh();
   }
 
@@ -55,9 +75,10 @@ export default function InspectionList({ inspections, isStaff }) {
     setBusyId(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.error || 'Failed to delete');
+      showToast(data.error || 'Failed to delete', 'error', 6000);
       return;
     }
+    showToast(`"${site}" deleted`, 'success');
     router.refresh();
   }
 
@@ -112,65 +133,65 @@ export default function InspectionList({ inspections, isStaff }) {
       ) : (
         <div className="archive-list">
           {filtered.map((i) => (
-        <div className="archive-item" key={i.id}>
-          <a href={`/inspection/${i.id}`}>
-            <strong>{i.site}</strong>
-            <div className="meta-line">
-              <span>{i.asset || 'Inspection'}</span>
-              <span>· {formatDate(i.inspection_date)}</span>
-              {i.pilot && <span>· Pilot: {i.pilot}</span>}
-              {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
-            </div>
-          </a>
+            <div className="archive-item" key={i.id}>
+              <a href={`/inspection/${i.id}`}>
+                <strong>{i.site}</strong>
+                <div className="meta-line">
+                  <span>{i.asset || 'Inspection'}</span>
+                  <span>· {formatDate(i.inspection_date)}</span>
+                  {i.pilot && <span>· Pilot: {i.pilot}</span>}
+                  {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
+                </div>
+              </a>
 
-          <span className={`status-pill ${STATUS_CLASS[i.status]}`}>
-            <span className="status-dot" />
-            {STATUS_LABEL[i.status]}
-          </span>
+              <span className={`status-pill ${STATUS_CLASS[i.status]}`}>
+                <span className="status-dot" />
+                {STATUS_LABEL[i.status]}
+              </span>
 
-          {isStaff && (
-            <div className="row-actions">
-              {i.status !== 'live' && i.status !== 'completed' && i.status !== 'archived' && (
-                <button
-                  className="small-btn go-live"
-                  disabled={busyId === i.id}
-                  onClick={() => setStatus(i.id, 'live')}
-                >
-                  {busyId === i.id && <span className="spinner dark" />}
-                  Go Live
-                </button>
+              {isStaff && (
+                <div className="row-actions">
+                  {i.status !== 'live' && i.status !== 'completed' && i.status !== 'archived' && (
+                    <button
+                      className="small-btn go-live"
+                      disabled={busyId === i.id}
+                      onClick={() => setStatus(i.id, 'live', i.site)}
+                    >
+                      {busyId === i.id && <span className="spinner dark" />}
+                      Go Live
+                    </button>
+                  )}
+                  {i.status === 'live' && (
+                    <button
+                      className="small-btn end-live"
+                      disabled={busyId === i.id}
+                      onClick={() => setStatus(i.id, 'completed', i.site)}
+                    >
+                      {busyId === i.id && <span className="spinner dark" />}
+                      End Stream
+                    </button>
+                  )}
+                  {(i.status === 'completed' || i.status === 'archived') && i.status !== 'archived' && (
+                    <button
+                      className="small-btn"
+                      disabled={busyId === i.id}
+                      onClick={() => setStatus(i.id, 'archived', i.site)}
+                    >
+                      {busyId === i.id && <span className="spinner dark" />}
+                      Archive
+                    </button>
+                  )}
+                  <button
+                    className="small-btn end-live"
+                    disabled={busyId === i.id}
+                    onClick={() => deleteInspection(i.id, i.site)}
+                  >
+                    {busyId === i.id && <span className="spinner dark" />}
+                    Delete
+                  </button>
+                </div>
               )}
-              {i.status === 'live' && (
-                <button
-                  className="small-btn end-live"
-                  disabled={busyId === i.id}
-                  onClick={() => setStatus(i.id, 'completed')}
-                >
-                  {busyId === i.id && <span className="spinner dark" />}
-                  End Stream
-                </button>
-              )}
-              {(i.status === 'completed' || i.status === 'archived') && i.status !== 'archived' && (
-                <button
-                  className="small-btn"
-                  disabled={busyId === i.id}
-                  onClick={() => setStatus(i.id, 'archived')}
-                >
-                  {busyId === i.id && <span className="spinner dark" />}
-                  Archive
-                </button>
-              )}
-              <button
-                className="small-btn end-live"
-                disabled={busyId === i.id}
-                onClick={() => deleteInspection(i.id, i.site)}
-              >
-                {busyId === i.id && <span className="spinner dark" />}
-                Delete
-              </button>
             </div>
-          )}
-        </div>
           ))}
         </div>
       )}
