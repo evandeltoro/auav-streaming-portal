@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Archive, BarChart3, LifeBuoy, LogOut, ShieldCheck, User, Users, Users2, Video } from 'lucide-react';
+import { Archive, BarChart3, LayoutDashboard, LifeBuoy, LogOut, Plus, ShieldCheck, User, Users, Users2 } from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
 import ThemeToggle from './ThemeToggle';
 
@@ -30,10 +30,18 @@ export default function Sidebar({ email = '', isStaff = false, isAdmin = false }
         <img src="/auav-logo.png" alt="AUAV" />
       </Link>
 
+      {isStaff && (
+        <Link href="/?new=1" className="sidebar-link sidebar-quick-action">
+          <Plus size={18} />
+          <span>New Inspection</span>
+        </Link>
+      )}
+
       <nav className="sidebar-nav">
+        {isStaff && <div className="sidebar-group-label">Operations</div>}
         <Link href="/" className={`sidebar-link ${pathname === '/' || pathname.startsWith('/inspection/') ? 'active' : ''}`}>
-          <Video size={18} />
-          <span>Live</span>
+          <LayoutDashboard size={18} />
+          <span>Dashboard</span>
         </Link>
         <Link href="/archive" className={`sidebar-link ${pathname === '/archive' ? 'active' : ''}`}>
           <Archive size={18} />
@@ -43,6 +51,8 @@ export default function Sidebar({ email = '', isStaff = false, isAdmin = false }
           <Users2 size={18} />
           <span>Town Hall</span>
         </Link>
+
+        {(isStaff || isAdmin) && <div className="sidebar-group-label">Admin</div>}
         {isStaff && (
           <Link href="/clients" className={`sidebar-link ${pathname === '/clients' ? 'active' : ''}`}>
             <Users size={18} />

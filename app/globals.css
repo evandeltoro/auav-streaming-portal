@@ -171,6 +171,38 @@ select:focus-visible {
 .sidebar-link:hover { background: var(--bg-hover); color: var(--auav-orange); }
 .sidebar-link.active { background: var(--auav-orange); color: #fff; }
 
+/* Separates the day-to-day ops links (Dashboard/Archive/Town Hall) from the
+   back-office admin links (Clients/Engagement/Team) -- only shown to staff,
+   since clients only ever see the ops group and a label there would just
+   be noise. */
+.sidebar-group-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 14px 12px 4px;
+}
+.sidebar-group-label:first-child { padding-top: 4px; }
+
+/* Quick-create action, always reachable regardless of which page you're on
+   -- previously "+ New Inspection" only existed as a button on the
+   Dashboard page itself. */
+.sidebar-quick-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  margin: 0 0 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #fff;
+  background: var(--auav-orange);
+  transition: background .15s;
+}
+.sidebar-quick-action:hover { background: var(--auav-orange-dark); }
+
 .sidebar-bottom {
   border-top: 1.5px solid var(--border-color);
   padding-top: 14px;
@@ -950,6 +982,9 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
   .sidebar-logo img { height: 24px; }
   .sidebar-nav { flex-direction: row; flex: 1; gap: 4px; }
   .sidebar-link { padding: 6px 10px; font-size: 0.88rem; white-space: nowrap; }
+  .sidebar-group-label { display: none; }
+  .sidebar-quick-action { margin: 0; padding: 7px 10px; flex-shrink: 0; }
+  .sidebar-quick-action span { display: none; }
   .sidebar-bottom {
     flex-direction: row;
     align-items: center;

@@ -1,13 +1,25 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from './Toast';
 
 export default function NewInspectionForm({ companies, clients }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const showToast = useToast();
-  const [open, setOpen] = useState(false);
+  // Sidebar's "+ New Inspection" quick action links here with ?new=1 so the
+  // form opens automatically no matter what page you clicked it from --
+  // previously this button only existed on the Dashboard itself.
+  const [open, setOpen] = useState(searchParams.get('new') === '1');
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      setOpen(true);
+      router.replace('/', { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
