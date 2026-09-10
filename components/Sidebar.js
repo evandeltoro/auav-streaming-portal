@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Archive, BarChart3, LifeBuoy, LogOut, ShieldCheck, User, Users, Users2, Video } from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
@@ -25,49 +26,49 @@ export default function Sidebar({ email = '', isStaff = false, isAdmin = false }
 
   return (
     <aside className="sidebar">
-      <a href="/" className="sidebar-logo" aria-label="Go to dashboard">
+      <Link href="/" className="sidebar-logo" aria-label="Go to dashboard">
         <img src="/auav-logo.png" alt="AUAV" />
-      </a>
+      </Link>
 
       <nav className="sidebar-nav">
-        <a href="/" className={`sidebar-link ${pathname === '/' ? 'active' : ''}`}>
+        <Link href="/" className={`sidebar-link ${pathname === '/' || pathname.startsWith('/inspection/') ? 'active' : ''}`}>
           <Video size={18} />
           <span>Live</span>
-        </a>
-        <a href="/archive" className={`sidebar-link ${pathname === '/archive' ? 'active' : ''}`}>
+        </Link>
+        <Link href="/archive" className={`sidebar-link ${pathname === '/archive' ? 'active' : ''}`}>
           <Archive size={18} />
           <span>Archived Streams</span>
-        </a>
-        <a href="/townhall" className={`sidebar-link ${pathname === '/townhall' || pathname.startsWith('/townhall/') ? 'active' : ''}`}>
+        </Link>
+        <Link href="/townhall" className={`sidebar-link ${pathname === '/townhall' || pathname.startsWith('/townhall/') ? 'active' : ''}`}>
           <Users2 size={18} />
           <span>Town Hall</span>
-        </a>
+        </Link>
         {isStaff && (
-          <a href="/clients" className={`sidebar-link ${pathname === '/clients' ? 'active' : ''}`}>
+          <Link href="/clients" className={`sidebar-link ${pathname === '/clients' ? 'active' : ''}`}>
             <Users size={18} />
             <span>Clients</span>
-          </a>
+          </Link>
         )}
         {isStaff && (
-          <a href="/engagement" className={`sidebar-link ${pathname === '/engagement' ? 'active' : ''}`}>
+          <Link href="/engagement" className={`sidebar-link ${pathname === '/engagement' ? 'active' : ''}`}>
             <BarChart3 size={18} />
             <span>Engagement</span>
-          </a>
+          </Link>
         )}
         {isAdmin && (
-          <a href="/team" className={`sidebar-link ${pathname === '/team' ? 'active' : ''}`}>
+          <Link href="/team" className={`sidebar-link ${pathname === '/team' ? 'active' : ''}`}>
             <ShieldCheck size={18} />
             <span>Team</span>
-          </a>
+          </Link>
         )}
       </nav>
 
       <div className="sidebar-bottom">
         <ThemeToggle />
-        <a href="/account" className={`sidebar-link ${pathname === '/account' ? 'active' : ''}`}>
+        <Link href="/account" className={`sidebar-link ${pathname === '/account' ? 'active' : ''}`}>
           <User size={18} />
           <span>My Account</span>
-        </a>
+        </Link>
         <a href="mailto:support@auav-us.com" className="sidebar-link sidebar-support">
           <LifeBuoy size={18} />
           <span>Support</span>

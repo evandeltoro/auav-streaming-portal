@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Inbox } from 'lucide-react';
 import { useToast } from './Toast';
@@ -134,7 +135,7 @@ export default function InspectionList({ inspections, isStaff }) {
         <div className="archive-list">
           {filtered.map((i) => (
             <div className="archive-item" key={i.id}>
-              <a href={`/inspection/${i.id}`}>
+              <Link href={`/inspection/${i.id}`}>
                 <strong>{i.site}</strong>
                 <div className="meta-line">
                   <span>{i.asset || 'Inspection'}</span>
@@ -142,7 +143,7 @@ export default function InspectionList({ inspections, isStaff }) {
                   {i.pilot && <span>· Pilot: {i.pilot}</span>}
                   {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
                 </div>
-              </a>
+              </Link>
 
               <span className={`status-pill ${STATUS_CLASS[i.status]}`}>
                 <span className="status-dot" />

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { withPageError, assertNoError } from '../../lib/withPageError';
@@ -46,9 +47,9 @@ async function TownHallIndexInner() {
             {companies.map((c) => (
               <div key={c.id} className="archive-item">
                 <strong>{c.name}</strong>
-                <a href={`/townhall/${c.id}`} className="small-btn go-live" style={{ textDecoration: 'none' }}>
+                <Link href={`/townhall/${c.id}`} className="small-btn go-live" style={{ textDecoration: 'none' }}>
                   Join
-                </a>
+                </Link>
               </div>
             ))}
           </div>
