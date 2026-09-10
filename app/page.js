@@ -38,6 +38,7 @@ async function HomePageInner() {
 
   let companies = [];
   let clients = [];
+  let assets = [];
   if (isStaff) {
     const { data, error: companiesError } = await supabase.from('companies').select('id, name').order('name');
     assertNoError('companies query', companiesError);
@@ -51,6 +52,10 @@ async function HomePageInner() {
       .order('full_name');
     assertNoError('registered surveyors query', clientsError);
     clients = clientProfiles || [];
+
+    const { data: assetRows, error: assetsError } = await supabase.from('assets').select('id, name, company_id').order('name');
+    assertNoError('assets query', assetsError);
+    assets = assetRows || [];
   }
 
   const liveCount = inspections.filter((i) => i.status === 'live').length;
@@ -92,7 +97,7 @@ async function HomePageInner() {
             : 'Your company’s scheduled and live inspections'}
         </p>
 
-        {isStaff && <NewInspectionForm companies={companies} clients={clients} />}
+        {isStaff && <NewInspectionForm companies={companies} clients={clients} assets={assets} />}
 
         <InspectionList inspections={inspections} isStaff={isStaff} />
       </div>

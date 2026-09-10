@@ -28,10 +28,20 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { company_id, site, asset, pilot, inspection_type, inspection_date, surveyor_id, open_comms } = body;
+  const { company_id, site, asset, asset_id, pilot, inspection_type, inspection_date, surveyor_id, open_comms } = body;
 
   if (!company_id || !site) {
     return NextResponse.json({ error: 'company_id and site are required' }, { status: 400 });
+  }
+
+  // Defense in depth, same pattern as the surveyor check below -- an
+  // asset_id has to actually belong to the company this inspection is
+  // being created under, not just any asset in the system.
+  if (asset_id) {
+    const { data: assetRow } = await supabase.from('assets').select('id, company_id').eq('id', asset_id).single();
+    if (!assetRow || assetRow.company_id !== company_id) {
+      return NextResponse.json({ error: 'Asset must belong to the selected company' }, { status: 400 });
+    }
   }
 
   // Defense in depth: the surveyor is the sole person who'll get access to
@@ -66,6 +76,7 @@ export async function POST(request) {
       company_id,
       site,
       asset: asset || null,
+      asset_id: asset_id || null,
       pilot: pilot || null,
       inspection_type: inspection_type || null,
       inspection_date: inspection_date || new Date().toISOString().slice(0, 10),

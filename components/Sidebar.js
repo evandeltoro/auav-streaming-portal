@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Archive, BarChart3, LayoutDashboard, LifeBuoy, LogOut, Plus, ShieldCheck, User, Users, Users2 } from 'lucide-react';
+import { Archive, BarChart3, Boxes, LayoutDashboard, LifeBuoy, LogOut, Plus, ShieldCheck, User, Users, Users2 } from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
 import ThemeToggle from './ThemeToggle';
 
@@ -50,6 +50,10 @@ export default function Sidebar({ email = '', isStaff = false, isAdmin = false }
         <Link href="/townhall" className={`sidebar-link ${pathname === '/townhall' || pathname.startsWith('/townhall/') ? 'active' : ''}`}>
           <Users2 size={18} />
           <span>Town Hall</span>
+        </Link>
+        <Link href="/assets" className={`sidebar-link ${pathname === '/assets' || pathname.startsWith('/assets/') ? 'active' : ''}`}>
+          <Boxes size={18} />
+          <span>Assets</span>
         </Link>
 
         {(isStaff || isAdmin) && <div className="sidebar-group-label">Admin</div>}

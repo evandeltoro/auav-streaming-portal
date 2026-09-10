@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from './Toast';
 
-export default function NewInspectionForm({ companies, clients }) {
+export default function NewInspectionForm({ companies, clients, assets }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const showToast = useToast();
@@ -26,6 +26,7 @@ export default function NewInspectionForm({ companies, clients }) {
     company_id: companies[0]?.id || '',
     site: '',
     asset: '',
+    asset_id: '',
     pilot: '',
     inspection_type: 'confined_space',
     surveyor_id: '',
@@ -33,16 +34,24 @@ export default function NewInspectionForm({ companies, clients }) {
   });
 
   const surveyorOptions = (clients || []).filter((c) => c.company_id === form.company_id);
+  const assetOptions = (assets || []).filter((a) => a.company_id === form.company_id);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
   function updateCompany(company_id) {
-    // Surveyor list is scoped to the selected company -- reset the pick so
-    // we never submit a surveyor that belongs to a different client.
+    // Surveyor and asset lists are both scoped to the selected company --
+    // reset the picks so we never submit either belonging to a different
+    // client.
     const nextOptions = (clients || []).filter((c) => c.company_id === company_id);
-    setForm((f) => ({ ...f, company_id, surveyor_id: nextOptions[0]?.id || '' }));
+    const nextAssets = (assets || []).filter((a) => a.company_id === company_id);
+    setForm((f) => ({
+      ...f,
+      company_id,
+      surveyor_id: nextOptions[0]?.id || '',
+      asset_id: nextAssets[0]?.id || '',
+    }));
   }
 
   async function handleSubmit(e) {
@@ -80,6 +89,7 @@ export default function NewInspectionForm({ companies, clients }) {
       company_id: companies[0]?.id || '',
       site: '',
       asset: '',
+      asset_id: '',
       pilot: '',
       inspection_type: 'confined_space',
       surveyor_id: '',
@@ -111,6 +121,22 @@ export default function NewInspectionForm({ companies, clients }) {
       <input value={form.site} onChange={(e) => update('site', e.target.value)} placeholder="e.g. Gulf Platform 4" required />
 
       <label>Asset</label>
+      {assetOptions.length === 0 ? (
+        <div className="meta-line" style={{ marginBottom: 10 }}>
+          This client has no registered assets yet -- add one on the Clients page.
+        </div>
+      ) : (
+        <select value={form.asset_id} onChange={(e) => update('asset_id', e.target.value)}>
+          <option value="">No specific asset</option>
+          {assetOptions.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+      )}
+
+      <label>Component / Location (optional)</label>
       <input value={form.asset} onChange={(e) => update('asset', e.target.value)} placeholder="e.g. Riser Tower B" />
 
       <label>Pilot</label>

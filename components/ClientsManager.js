@@ -378,7 +378,97 @@ function NewCompanyForm({ onDone }) {
   );
 }
 
-export default function ClientsManager({ companies, clientsByCompany, allClients, isAdmin }) {
+// The physical rig/platform/FPSO an inspection happens on (e.g. "Turritella
+// FPSO", "Auger Rig") -- one level above inspections, scoped to a company.
+// Lets clients with multiple assets drill into just one instead of every
+// inspection across every asset being mashed into one list, which matters
+// once several assets are streaming simultaneous inspections.
+function AssetsSection({ companyId, assets, onDone }) {
+  const showToast = useToast();
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [error, setError] = useState('');
+
+  async function addAsset(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    const res = await fetch('/api/assets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, company_id: companyId }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok) {
+      setError(data.error || 'Failed to create asset');
+      return;
+    }
+    showToast(`"${name}" added`, 'success');
+    setName('');
+    onDone();
+  }
+
+  async function deleteAsset(id, assetName) {
+    if (!window.confirm(`Delete "${assetName}"? This can't be undone.`)) return;
+    setDeletingId(id);
+    const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    setDeletingId(null);
+    if (!res.ok) {
+      showToast(data.error || 'Failed to delete asset', 'error');
+      return;
+    }
+    showToast(`"${assetName}" deleted`, 'success');
+    onDone();
+  }
+
+  return (
+    <div className="viewer-history" style={{ marginTop: 10 }}>
+      <div className="viewer-history-title">Assets</div>
+      {assets.length === 0 ? (
+        <div className="meta-line" style={{ marginBottom: 10 }}>
+          No assets yet -- add the rig/platform/FPSO this company's inspections happen on (e.g.
+          &quot;Turritella FPSO&quot;).
+        </div>
+      ) : (
+        <div className="viewer-history-list" style={{ marginBottom: 10 }}>
+          {assets.map((a) => (
+            <div className="viewer-history-row viewer-history-row-2col" key={a.id}>
+              <span className="viewer-history-name">{a.name}</span>
+              <button
+                type="button"
+                className="small-btn end-live"
+                disabled={deletingId === a.id}
+                onClick={() => deleteAsset(a.id, a.name)}
+              >
+                {deletingId === a.id && <span className="spinner dark" />}
+                Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <form className="townhall-row" onSubmit={addAsset}>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Turritella FPSO"
+          style={{ marginBottom: 0, flex: 1, minWidth: 180 }}
+          required
+        />
+        <button type="submit" className="small-btn go-live" disabled={saving}>
+          {saving && <span className="spinner dark" />}
+          Add Asset
+        </button>
+      </form>
+      {error && <div className="error-text">{error}</div>}
+    </div>
+  );
+}
+
+export default function ClientsManager({ companies, clientsByCompany, assetsByCompany, allClients, isAdmin }) {
   const router = useRouter();
   const showToast = useToast();
   const [deletingId, setDeletingId] = useState(null);
@@ -424,6 +514,7 @@ export default function ClientsManager({ companies, clientsByCompany, allClients
       <div className="archive-list">
         {companies.map((company) => {
           const clients = clientsByCompany[company.id] || [];
+          const assets = (assetsByCompany && assetsByCompany[company.id]) || [];
           return (
             <div className="archive-item archive-item-stacked" key={company.id}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -453,6 +544,8 @@ export default function ClientsManager({ companies, clientsByCompany, allClients
                   ))}
                 </div>
               )}
+
+              <AssetsSection companyId={company.id} assets={assets} onDone={refresh} />
 
               <InviteForm companyId={company.id} onDone={refresh} />
             </div>

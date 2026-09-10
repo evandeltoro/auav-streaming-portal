@@ -28,6 +28,8 @@ async function ClientsPageInner() {
 
   const { data: companies, error: companiesError } = await supabase.from('companies').select('id, name').order('name');
   assertNoError('companies query', companiesError);
+  const { data: assets, error: assetsError } = await supabase.from('assets').select('id, name, company_id').order('name');
+  assertNoError('assets query', assetsError);
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
     .select('id, full_name, role, company_id, is_registered_surveyor')
@@ -78,6 +80,12 @@ async function ClientsPageInner() {
     }))
     .sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
 
+  const assetsByCompany = {};
+  (assets || []).forEach((a) => {
+    if (!assetsByCompany[a.company_id]) assetsByCompany[a.company_id] = [];
+    assetsByCompany[a.company_id].push(a);
+  });
+
   return (
     <div className="page-wrap">
       <div className="card">
@@ -86,6 +94,7 @@ async function ClientsPageInner() {
         <ClientsManager
           companies={companies || []}
           clientsByCompany={clientsByCompany}
+          assetsByCompany={assetsByCompany}
           allClients={allClients}
           isAdmin={profile?.role === 'admin'}
         />
