@@ -26,6 +26,15 @@ async function TeamPageInner() {
     .in('role', ['admin', 'inspector']);
   assertNoError('staff profiles query', staffError);
 
+  // Needed for the "change role to Client" path -- moving someone off the
+  // team requires picking which company they land under.
+  const { data: companies, error: companiesError } = await supabase
+    .from('companies')
+    .select('id, name')
+    .eq('is_demo', false)
+    .order('name');
+  assertNoError('companies query', companiesError);
+
   // Emails and confirmation status live in auth.users, not profiles -- pull
   // them in via the admin client so the list can show who's who and whether
   // their invite is still pending. Same pattern as the Clients page.
@@ -57,7 +66,7 @@ async function TeamPageInner() {
       <div className="card">
         <h1>Team</h1>
         <p className="subtitle">Manage who has admin or inspector access to the portal</p>
-        <TeamManager teamMembers={teamMembers} currentUserId={user.id} />
+        <TeamManager teamMembers={teamMembers} currentUserId={user.id} companies={companies || []} />
       </div>
     </div>
   );

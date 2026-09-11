@@ -61,7 +61,7 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error: alreadyRegistered
-            ? 'That email is already registered. Use Resend or Remove Access on the existing team member below instead.'
+            ? 'That email is already registered. If they’re already a team member, use Resend or Remove Access below. If they signed up as a client, go to the Clients page, find them under "All Registered Clients," and use the role dropdown there to make them Admin or Inspector instead.'
             : linkError.message,
         },
         { status: 400 }
@@ -89,7 +89,7 @@ export async function POST(request) {
     return NextResponse.json(
       {
         error: alreadyRegistered
-          ? 'That email is already registered. Use Resend Invite or Remove Access on the existing team member below instead.'
+          ? 'That email is already registered. If they’re already a team member, use Resend Invite or Remove Access below. If they signed up as a client, go to the Clients page, find them under "All Registered Clients," and use the role dropdown there to make them Admin or Inspector instead.'
           : inviteError.message,
       },
       { status: 400 }

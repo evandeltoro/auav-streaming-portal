@@ -102,12 +102,17 @@ function InviteForm({ onDone }) {
   );
 }
 
-function TeamRow({ member, isSelf, onDone }) {
+function TeamRow({ member, isSelf, companies, onDone }) {
   const showToast = useToast();
   const [busy, setBusy] = useState(false);
   const [roleBusy, setRoleBusy] = useState(false);
   const [error, setError] = useState('');
   const [link, setLink] = useState('');
+  // Demoting to Client needs a company picked first -- rather than firing
+  // the change the instant "Client" is selected, this holds it as pending
+  // until a company is actually chosen and confirmed.
+  const [pendingClient, setPendingClient] = useState(false);
+  const [companyId, setCompanyId] = useState('');
 
   async function resend(linkOnly) {
     setError('');
@@ -151,6 +156,14 @@ function TeamRow({ member, isSelf, onDone }) {
     onDone();
   }
 
+  function selectRole(nextRole) {
+    if (nextRole === 'client') {
+      setPendingClient(true);
+      return;
+    }
+    changeRole(nextRole);
+  }
+
   async function changeRole(nextRole) {
     if (nextRole === member.role) return;
     setError('');
@@ -168,6 +181,30 @@ function TeamRow({ member, isSelf, onDone }) {
       return;
     }
     showToast(`${member.full_name || member.email || 'Team member'} is now ${ROLE_LABEL[nextRole]}`, 'success');
+    onDone();
+  }
+
+  // Separate endpoint from admin<->inspector (above) -- this is the one
+  // that accepts any target role, which is why it's the only path that can
+  // move someone all the way back to Client.
+  async function confirmDemoteToClient() {
+    if (!companyId) return;
+    setError('');
+    setRoleBusy(true);
+    const res = await fetch(`/api/profiles/${member.id}/role`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'client', company_id: companyId }),
+    });
+    const data = await res.json();
+    setRoleBusy(false);
+    if (!res.ok) {
+      setError(data.error || 'Failed to change role');
+      showToast(data.error || 'Failed to change role', 'error');
+      return;
+    }
+    showToast(`${member.full_name || member.email || 'That user'} is now a client -- see the Clients page.`, 'success', 6000);
+    setPendingClient(false);
     onDone();
   }
 
@@ -198,15 +235,54 @@ function TeamRow({ member, isSelf, onDone }) {
           </div>
         )}
       </div>
-      <select
-        value={member.role}
-        onChange={(e) => changeRole(e.target.value)}
-        disabled={roleBusy}
-        style={{ marginBottom: 0, minWidth: 110, width: 'auto' }}
-      >
-        <option value="admin">{ROLE_LABEL.admin}</option>
-        <option value="inspector">{ROLE_LABEL.inspector}</option>
-      </select>
+      {pendingClient ? (
+        <>
+          <select
+            value={companyId}
+            onChange={(e) => setCompanyId(e.target.value)}
+            disabled={roleBusy}
+            style={{ marginBottom: 0, minWidth: 170, width: 'auto' }}
+          >
+            <option value="">-- Pick a company --</option>
+            {(companies || []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="small-btn go-live"
+            disabled={roleBusy || !companyId}
+            onClick={confirmDemoteToClient}
+          >
+            {roleBusy && <span className="spinner dark" />}
+            Confirm
+          </button>
+          <button
+            type="button"
+            className="small-btn"
+            disabled={roleBusy}
+            onClick={() => {
+              setPendingClient(false);
+              setCompanyId('');
+            }}
+          >
+            Cancel
+          </button>
+        </>
+      ) : (
+        <select
+          value={member.role}
+          onChange={(e) => selectRole(e.target.value)}
+          disabled={roleBusy}
+          style={{ marginBottom: 0, minWidth: 110, width: 'auto' }}
+        >
+          <option value="admin">{ROLE_LABEL.admin}</option>
+          <option value="inspector">{ROLE_LABEL.inspector}</option>
+          <option value="client">Client</option>
+        </select>
+      )}
       <div className="row-actions">
         {member.pending && (
           <button type="button" className="small-btn" disabled={busy} onClick={() => resend(false)}>
@@ -229,7 +305,7 @@ function TeamRow({ member, isSelf, onDone }) {
   );
 }
 
-export default function TeamManager({ teamMembers, currentUserId }) {
+export default function TeamManager({ teamMembers, currentUserId, companies }) {
   const router = useRouter();
 
   function refresh() {
@@ -240,6 +316,11 @@ export default function TeamManager({ teamMembers, currentUserId }) {
     <div>
       <InviteForm onDone={refresh} />
 
+      <div className="meta-line" style={{ marginBottom: 12 }}>
+        Already-registered accounts (like someone who signed up as a client) can&apos;t be re-invited here --
+        change their role from the Clients page instead, or move a team member back to Client below.
+      </div>
+
       {(!teamMembers || teamMembers.length === 0) ? (
         <div className="viewer-empty">No team members yet.</div>
       ) : (
@@ -249,7 +330,7 @@ export default function TeamManager({ teamMembers, currentUserId }) {
           </div>
           <div className="viewer-history-list">
             {teamMembers.map((m) => (
-              <TeamRow key={m.id} member={m} isSelf={m.id === currentUserId} onDone={refresh} />
+              <TeamRow key={m.id} member={m} isSelf={m.id === currentUserId} companies={companies} onDone={refresh} />
             ))}
           </div>
         </div>

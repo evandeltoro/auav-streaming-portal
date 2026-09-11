@@ -234,10 +234,12 @@ function ClientRow({ client, onDone }) {
 }
 
 function AllClientsRow({ client, companies, onDone }) {
+  const showToast = useToast();
   const [companyId, setCompanyId] = useState(client.company_id || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [roleBusy, setRoleBusy] = useState(false);
 
   async function applyCompany(nextId) {
     setCompanyId(nextId);
@@ -258,6 +260,34 @@ function AllClientsRow({ client, companies, onDone }) {
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    onDone();
+  }
+
+  // Promotes to staff -- separate from the invite flow (which can't
+  // re-invite an already-registered email), this is how an existing client
+  // account like a coworker who accidentally signed up under a client
+  // company becomes admin or inspector without a fresh invite.
+  async function promote(nextRole) {
+    if (nextRole === 'client') return;
+    const label = nextRole === 'admin' ? 'Admin' : 'Inspector';
+    if (!window.confirm(`Make ${client.full_name || client.email || 'this user'} ${label}? They'll move off the client list onto the Team page.`)) {
+      return;
+    }
+    setError('');
+    setRoleBusy(true);
+    const res = await fetch(`/api/profiles/${client.id}/role`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: nextRole }),
+    });
+    const data = await res.json();
+    setRoleBusy(false);
+    if (!res.ok) {
+      setError(data.error || 'Failed to change role');
+      showToast(data.error || 'Failed to change role', 'error');
+      return;
+    }
+    showToast(`${client.full_name || client.email || 'That user'} is now ${label} -- see the Team page.`, 'success', 6000);
     onDone();
   }
 
@@ -301,6 +331,16 @@ function AllClientsRow({ client, companies, onDone }) {
         {saving && <span className="spinner dark" />}
         {!saving && saved && 'Saved'}
       </span>
+      <select
+        value="client"
+        onChange={(e) => promote(e.target.value)}
+        disabled={roleBusy}
+        style={{ marginBottom: 0, minWidth: 130, width: 'auto' }}
+      >
+        <option value="client">Client</option>
+        <option value="inspector">Make Inspector</option>
+        <option value="admin">Make Admin</option>
+      </select>
     </div>
   );
 }
