@@ -71,7 +71,10 @@ async function AssetsPageInner() {
     );
   }
 
-  // Staff view: grouped by company, same visual pattern as the Clients page.
+  // Staff view: grouped by company, but each asset is still its own
+  // clickable bar (matching the client view) rather than a plain text link
+  // nested inside one shared company bar -- a company heading above each
+  // group, not a container around it.
   const assetsByCompany = {};
   assets.forEach((a) => {
     const key = a.company_id;
@@ -84,20 +87,23 @@ async function AssetsPageInner() {
       <div className="card">
         <h1>Assets</h1>
         <p className="subtitle">Platforms and rigs across every client</p>
-        <div className="archive-list">
-          {Object.entries(assetsByCompany).map(([companyId, group]) => (
-            <div className="archive-item archive-item-stacked" key={companyId}>
-              <strong>{group.name}</strong>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                {group.items.map((a) => (
-                  <Link href={`/assets/${a.id}`} key={a.id} className="meta-line" style={{ color: 'var(--text-primary)' }}>
-                    {a.name}
-                  </Link>
-                ))}
-              </div>
+        {Object.entries(assetsByCompany).map(([companyId, group]) => (
+          <div key={companyId} style={{ marginBottom: 22 }}>
+            <div className="sidebar-group-label" style={{ padding: '0 0 8px' }}>
+              {group.name}
             </div>
-          ))}
-        </div>
+            <div className="archive-list">
+              {group.items.map((a) => (
+                <Link href={`/assets/${a.id}`} className="archive-item" key={a.id}>
+                  <div>
+                    <strong>{a.name}</strong>
+                  </div>
+                  <Boxes size={18} />
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

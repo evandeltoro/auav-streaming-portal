@@ -36,6 +36,8 @@ export default function StepTour({ active, steps, onFinished, finishLabel = 'Fin
       return;
     }
 
+    let scrolledForStep = false;
+
     function measure() {
       const el = document.querySelector(`[data-tour-id="${step.target}"]`);
       if (!el) {
@@ -46,12 +48,29 @@ export default function StepTour({ active, steps, onFinished, finishLabel = 'Fin
         setRect(null);
         return;
       }
+      // The target can easily be below the fold on a long page (the demo
+      // inspection page especially -- video, surveyor assignment, comms,
+      // chat all stacked). Center it into view automatically on arrival
+      // instead of leaving the person to scroll and hunt for the tooltip
+      // themselves -- that's what made Next unreachable without scrolling.
+      if (!scrolledForStep) {
+        scrolledForStep = true;
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
       setRect(el.getBoundingClientRect());
     }
 
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    // Capture phase so this also fires for scroll containers, not just the
+    // window -- and keeps the spotlight/tooltip glued to the target for the
+    // full duration of the smooth-scroll animation above, not just its
+    // start and end position.
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, index, isOverlayStep, step?.target, step?.optional]);
 
@@ -126,14 +145,28 @@ export default function StepTour({ active, steps, onFinished, finishLabel = 'Fin
     );
   }
 
-  // Anchor below-right of the highlighted element and clamp inside the
-  // viewport -- reads correctly whether the target sits in a left column
-  // (desktop sidebar) or a top bar (mobile sidebar, per the 720px
-  // breakpoint in globals.css), without branching on layout.
+  // Anchor below the highlighted element by default, but flip above it
+  // when there's more room that way (e.g. the target sits low on a long
+  // page even after centering it into view). Either way, clamp inside the
+  // viewport and cap the height with internal scrolling as a last resort
+  // -- so the Next button is never pushed off-screen and unreachable, even
+  // if a step's body text runs long on a short viewport.
   const TOOLTIP_WIDTH = 300;
-  const TOOLTIP_HEIGHT_ESTIMATE = 200;
-  const left = Math.min(Math.max(rect.left, 16), window.innerWidth - TOOLTIP_WIDTH - 16);
-  const top = Math.min(rect.bottom + 14, window.innerHeight - TOOLTIP_HEIGHT_ESTIMATE - 16);
+  const MARGIN = 16;
+  const GAP = 14;
+  const spaceBelow = window.innerHeight - rect.bottom - GAP - MARGIN;
+  const spaceAbove = rect.top - GAP - MARGIN;
+  const left = Math.min(Math.max(rect.left, MARGIN), window.innerWidth - TOOLTIP_WIDTH - MARGIN);
+
+  let top;
+  let maxHeight;
+  if (spaceBelow >= 140 || spaceBelow >= spaceAbove) {
+    top = rect.bottom + GAP;
+    maxHeight = Math.max(140, spaceBelow);
+  } else {
+    maxHeight = Math.max(140, spaceAbove);
+    top = Math.max(MARGIN, rect.top - GAP - maxHeight);
+  }
 
   return (
     <div className="onboarding-backdrop onboarding-backdrop-spotlight">
@@ -141,7 +174,7 @@ export default function StepTour({ active, steps, onFinished, finishLabel = 'Fin
         className="onboarding-highlight"
         style={{ top: rect.top - 6, left: rect.left - 6, width: rect.width + 12, height: rect.height + 12 }}
       />
-      <div className="onboarding-tooltip" style={{ top, left }}>
+      <div className="onboarding-tooltip" style={{ top, left, maxHeight, overflowY: 'auto' }}>
         <div className="onboarding-tooltip-step">
           Step {index + 1} of {resolvedSteps.length}
         </div>
