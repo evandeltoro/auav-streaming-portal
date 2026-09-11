@@ -26,7 +26,11 @@ async function ClientsPageInner() {
     redirect('/');
   }
 
-  const { data: companies, error: companiesError } = await supabase.from('companies').select('id, name').order('name');
+  const { data: companies, error: companiesError } = await supabase
+    .from('companies')
+    .select('id, name')
+    .eq('is_demo', false)
+    .order('name');
   assertNoError('companies query', companiesError);
   const { data: assets, error: assetsError } = await supabase.from('assets').select('id, name, company_id').order('name');
   assertNoError('assets query', assetsError);

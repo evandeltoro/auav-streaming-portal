@@ -27,6 +27,11 @@ async function HomePageInner() {
     .from('inspections')
     .select('id, site, asset, pilot, inspection_date, status, companies!inspections_company_id_fkey(name)')
     .in('status', ['scheduled', 'live'])
+    // The practice inspection lives under its own /demo entry point, not
+    // mixed into everyone's real job list -- especially important for
+    // clients, who'd otherwise see an unexplained "Practice Inspection"
+    // from a company they've never heard of.
+    .eq('is_demo', false)
     .order('inspection_date', { ascending: false });
   assertNoError('inspections query', inspectionsError);
 
@@ -40,7 +45,11 @@ async function HomePageInner() {
   let clients = [];
   let assets = [];
   if (isStaff) {
-    const { data, error: companiesError } = await supabase.from('companies').select('id, name').order('name');
+    const { data, error: companiesError } = await supabase
+      .from('companies')
+      .select('id, name')
+      .eq('is_demo', false)
+      .order('name');
     assertNoError('companies query', companiesError);
     companies = data || [];
 

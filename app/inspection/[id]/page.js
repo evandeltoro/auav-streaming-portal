@@ -2,13 +2,16 @@ import { createClient } from '../../../lib/supabase/server';
 import { createAdminClient } from '../../../lib/supabase/admin';
 import { withPageError, assertNoError } from '../../../lib/withPageError';
 import LiveVideo from '../../../components/LiveVideo';
+import DemoVideo from '../../../components/DemoVideo';
 import StreamCredentials from '../../../components/StreamCredentials';
 import ViewerHistory from '../../../components/ViewerHistory';
 import ChatBox from '../../../components/ChatBox';
 import StreamHealthHistory from '../../../components/StreamHealthHistory';
 import SurveyorAssign from '../../../components/SurveyorAssign';
+import DemoSurveyorClaim from '../../../components/DemoSurveyorClaim';
 import RadioPanel from '../../../components/RadioPanel';
 import CommsModeToggle from '../../../components/CommsModeToggle';
+import DemoTourLauncher from '../../../components/DemoTourLauncher';
 
 export default async function InspectionDetailPage({ params }) {
   return withPageError(() => InspectionDetailPageInner({ params }));
@@ -36,7 +39,7 @@ async function InspectionDetailPageInner({ params }) {
   // not a real failure, so it's deliberately not passed to assertNoError.
   const { data: inspection } = await supabase
     .from('inspections')
-    .select('id, site, asset, pilot, inspection_date, inspection_type, status, livekit_room_name, went_live_at, company_id, surveyor_id, open_comms, companies!inspections_company_id_fkey(name)')
+    .select('id, site, asset, pilot, inspection_date, inspection_type, status, livekit_room_name, went_live_at, company_id, surveyor_id, open_comms, is_demo, companies!inspections_company_id_fkey(name)')
     .eq('id', id)
     .single();
 
@@ -173,7 +176,12 @@ async function InspectionDetailPageInner({ params }) {
   // up somewhere it'll just 403.
   const commsOpen = inspection.status === 'scheduled' || inspection.status === 'live';
   const isSurveyor = inspection.surveyor_id === user.id;
-  const commsAccessAllowed = isStaff || isSurveyor || inspection.open_comms;
+  // The practice inspection always shows the Voice Comms panel, even to a
+  // user who hasn't claimed the surveyor seat -- clicking Join before
+  // claiming hits the same 403 a real unauthorized viewer would get, which
+  // is itself the point: it's what teaches the one-seat model, not
+  // something to hide.
+  const commsAccessAllowed = isStaff || isSurveyor || inspection.open_comms || inspection.is_demo;
 
   return (
     <div className="page-wrap">
@@ -187,12 +195,18 @@ async function InspectionDetailPageInner({ params }) {
           {inspection.inspection_date}
         </p>
 
+        {inspection.is_demo && <DemoTourLauncher />}
+
         {credentials && (
           <StreamCredentials whipUrl={credentials.whip_url} streamKey={credentials.stream_key} />
         )}
 
         {inspection.status === 'live' ? (
-          <LiveVideo room={inspection.livekit_room_name} inspectionId={inspection.id} wentLiveAt={inspection.went_live_at} />
+          inspection.is_demo ? (
+            <DemoVideo />
+          ) : (
+            <LiveVideo room={inspection.livekit_room_name} inspectionId={inspection.id} wentLiveAt={inspection.went_live_at} />
+          )
         ) : inspection.status === 'scheduled' ? (
           <div className="archive-empty">
             Not live yet. Start streaming in OBS with the credentials above — this will go live
@@ -210,11 +224,22 @@ async function InspectionDetailPageInner({ params }) {
           <div className="archive-empty">No recording is available for this inspection.</div>
         )}
 
+        {inspection.is_demo && !isStaff && (
+          <DemoSurveyorClaim
+            inspectionId={inspection.id}
+            currentSurveyorId={inspection.surveyor_id}
+            currentSurveyorName={surveyorName}
+            currentUserId={user.id}
+          />
+        )}
+
         {commsOpen && commsAccessAllowed && (
           <RadioPanel
             inspectionId={inspection.id}
             heading={
-              isStaff
+              inspection.is_demo
+                ? 'Voice Comms (Practice)'
+                : isStaff
                 ? 'Voice Comms (field radio)'
                 : inspection.open_comms
                 ? 'Voice Comms (Open -- Demo Mode)'

@@ -123,7 +123,7 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
   }
 
   return (
-    <div className="viewer-history">
+    <div className="viewer-history" data-tour-id="demo-radio-panel">
       <div className="viewer-history-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <RadioIcon size={16} />
         {heading}

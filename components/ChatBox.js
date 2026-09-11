@@ -86,7 +86,7 @@ export default function ChatBox({ inspectionId, initialMessages, currentUserId, 
       </div>
 
       {canSend ? (
-        <form className="chat-input-row" onSubmit={handleSubmit}>
+        <form className="chat-input-row" data-tour-id="demo-chat-input" onSubmit={handleSubmit}>
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}

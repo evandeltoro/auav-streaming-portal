@@ -2,7 +2,20 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Archive, BarChart3, Boxes, LayoutDashboard, LifeBuoy, LogOut, Plus, ShieldCheck, User, Users, Users2 } from 'lucide-react';
+import {
+  Archive,
+  BarChart3,
+  Boxes,
+  GraduationCap,
+  LayoutDashboard,
+  LifeBuoy,
+  LogOut,
+  Plus,
+  ShieldCheck,
+  User,
+  Users,
+  Users2,
+} from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
 import ThemeToggle from './ThemeToggle';
 
@@ -98,6 +111,10 @@ export default function Sidebar({ email = '', isStaff = false, isAdmin = false }
         <Link href="/account" data-tour-id="nav-account" className={`sidebar-link ${pathname === '/account' ? 'active' : ''}`}>
           <User size={18} />
           <span>My Account</span>
+        </Link>
+        <Link href="/demo" className="sidebar-link sidebar-support">
+          <GraduationCap size={18} />
+          <span>Practice Demo</span>
         </Link>
         <a href="mailto:support@auav-us.com" className="sidebar-link sidebar-support">
           <LifeBuoy size={18} />
