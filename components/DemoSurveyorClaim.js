@@ -50,7 +50,9 @@ export default function DemoSurveyorClaim({ inspectionId, currentSurveyorId, cur
       <div className="viewer-history-title">Surveyor Assignment</div>
       <div className="meta-line" style={{ marginBottom: 10 }}>
         On a real job, only the one client assigned as surveyor can join voice comms -- everyone else is locked
-        out. Here, you can assign yourself to see both sides.
+        out and wouldn&apos;t even see a Voice Comms panel on the page. It&apos;s always visible here, on this
+        practice inspection only, so you can try clicking Join both before and after claiming the seat and see
+        what each looks like.
       </div>
 
       {isMe ? (

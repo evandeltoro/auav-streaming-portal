@@ -215,6 +215,46 @@ select:focus-visible {
 .sidebar-support { font-size: 0.9rem; color: var(--text-muted); }
 .sidebar-support:hover { color: var(--auav-orange); background: transparent; }
 
+/* Tutorials menu -- a dropup popover above the sidebar trigger (it sits
+   near the bottom of the sidebar, so opening downward would run off the
+   viewport on shorter screens). Extensible: add more <Link>/<button>
+   .tutorials-menu-item rows in TutorialsMenu.js as more walkthroughs ship. */
+.tutorials-menu { position: relative; }
+.tutorials-menu-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 190px;
+  background: var(--bg-surface);
+  border: 1.3px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 10px 32px var(--shadow-strong);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 50;
+}
+.tutorials-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-decoration: none;
+}
+.tutorials-menu-item:hover { background: var(--bg-hover); color: var(--auav-orange); }
+.tutorials-menu-item:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .theme-toggle { font-size: 0.9rem; color: var(--text-muted); }
 .theme-toggle:hover { color: var(--auav-orange); }
 

@@ -27,7 +27,7 @@ const STEPS = [
   {
     target: 'demo-radio-panel',
     title: 'Voice comms',
-    body: 'Try "Join Voice Comms." If you haven’t claimed the surveyor seat yet, you’ll see exactly what happens if you’re not authorized -- try it both ways. Once connected, you can mute, leave, and pick which microphone and speaker to use.',
+    body: 'On a real job, this panel is only ever visible to the assigned surveyor and the field inspector -- everyone else doesn’t see it at all. It’s always shown here so you can try "Join Voice Comms" both before and after claiming the seat above, and see the real rejection message unauthorized users get. Once connected, you can mute, leave, and pick which microphone and speaker to use.',
   },
   {
     target: 'demo-chat-input',

@@ -6,7 +6,6 @@ import {
   Archive,
   BarChart3,
   Boxes,
-  GraduationCap,
   LayoutDashboard,
   LifeBuoy,
   LogOut,
@@ -18,6 +17,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
 import ThemeToggle from './ThemeToggle';
+import TutorialsMenu from './TutorialsMenu';
 
 // email/isStaff come from the root layout (a Server Component that reads
 // the auth cookie fresh on every navigation) instead of being fetched here.
@@ -112,10 +112,7 @@ export default function Sidebar({ email = '', isStaff = false, isAdmin = false }
           <User size={18} />
           <span>My Account</span>
         </Link>
-        <Link href="/demo" className="sidebar-link sidebar-support">
-          <GraduationCap size={18} />
-          <span>Practice Demo</span>
-        </Link>
+        <TutorialsMenu />
         <a href="mailto:support@auav-us.com" className="sidebar-link sidebar-support">
           <LifeBuoy size={18} />
           <span>Support</span>
