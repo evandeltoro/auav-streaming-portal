@@ -13,7 +13,7 @@ function buildSteps({ isStaff, isAdmin }) {
     {
       kind: 'welcome',
       title: 'Welcome to AUAV Private Stream',
-      body: 'Quick tour of the portal -- under a minute, and you can skip any time.',
+      body: 'A two-part tour: first the sidebar and what each section does, then a hands-on practice inspection so you can actually try joining comms and using chat.',
     },
   ];
 
@@ -82,15 +82,14 @@ function buildSteps({ isStaff, isAdmin }) {
 
   steps.push({
     kind: 'done',
-    title: 'You’re all set',
-    body: 'That’s the whole portal. Want to actually practice inside a live inspection -- joining voice comms, using chat, all of it -- with nothing real on the line?',
-    cta: { label: 'Try the practice inspection', href: '/demo' },
+    title: 'Part 1 done -- let’s see it live',
+    body: 'Next up: a real practice inspection, so you can actually try joining voice comms, using chat, and everything else -- with nothing real on the line.',
   });
 
   return steps;
 }
 
-export default function OnboardingTour({ active, isStaff, isAdmin, onFinished }) {
+export default function OnboardingTour({ active, isStaff, isAdmin }) {
   const pathname = usePathname();
 
   // Never show mid-auth -- a fresh invite lands on /set-password with a
@@ -101,6 +100,11 @@ export default function OnboardingTour({ active, isStaff, isAdmin, onFinished })
 
   const steps = buildSteps({ isStaff, isAdmin });
 
+  // Completing part 1 always continues straight into part 2 (the practice
+  // inspection) rather than offering it as something to opt into -- see
+  // DemoTour.js for the second half. onboarded_at is marked done here,
+  // before navigating away, so the sidebar tour doesn't pop up again even
+  // if someone doesn't finish part 2.
   async function finish() {
     try {
       await fetch('/api/account/onboarding', { method: 'POST' });
@@ -108,10 +112,10 @@ export default function OnboardingTour({ active, isStaff, isAdmin, onFinished })
       // Best effort -- if this fails the tour just shows again next visit,
       // which is a safe fallback, not a broken one.
     }
-    onFinished?.();
+    window.location.href = '/demo?tour=1';
   }
 
   if (!shouldRender) return null;
 
-  return <StepTour active={shouldRender} steps={steps} onFinished={finish} skipLabel="Skip tour" />;
+  return <StepTour active={shouldRender} steps={steps} onFinished={finish} finishLabel="Continue" />;
 }

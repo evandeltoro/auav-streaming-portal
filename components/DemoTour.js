@@ -10,7 +10,7 @@ import StepTour from './StepTour';
 const STEPS = [
   {
     kind: 'welcome',
-    title: 'Practice Inspection Walkthrough',
+    title: 'Part 2: Practice Inspection',
     body: 'Nothing here is a real job -- use this any time to get comfortable with the controls before your first real inspection. About a minute.',
   },
   {
@@ -38,10 +38,10 @@ const STEPS = [
   {
     kind: 'done',
     title: 'That’s everything',
-    body: 'You can come back to this practice inspection any time from the sidebar to try it again.',
+    body: 'That’s the whole walkthrough, both parts. You can come back to this practice inspection any time from the Tutorials menu in the sidebar.',
   },
 ];
 
 export default function DemoTour({ active, onFinished }) {
-  return <StepTour active={active} steps={STEPS} onFinished={onFinished} skipLabel="Skip" finishLabel="Done" />;
+  return <StepTour active={active} steps={STEPS} onFinished={onFinished} finishLabel="Done" />;
 }

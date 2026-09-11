@@ -4,13 +4,14 @@ import { useState } from 'react';
 import OnboardingTour from './OnboardingTour';
 
 // Thin client wrapper around OnboardingTour -- the server layout only knows
-// onboarded_at as of the page load that rendered it, so once the tour
-// finishes (or is skipped) we flip local state immediately instead of
-// waiting on a full navigation to re-fetch the profile.
+// onboarded_at as of the page load that rendered it, so this holds the
+// starting value as local state. OnboardingTour always ends by navigating
+// to /demo?tour=1 (part 2 of the walkthrough), which unmounts everything
+// here anyway, so there's no separate "finished" state to flip back.
 export default function OnboardingTourGate({ initialNeedsOnboarding, isStaff, isAdmin }) {
-  const [active, setActive] = useState(initialNeedsOnboarding);
+  const [active] = useState(initialNeedsOnboarding);
 
   if (!active) return null;
 
-  return <OnboardingTour active={active} isStaff={isStaff} isAdmin={isAdmin} onFinished={() => setActive(false)} />;
+  return <OnboardingTour active={active} isStaff={isStaff} isAdmin={isAdmin} />;
 }

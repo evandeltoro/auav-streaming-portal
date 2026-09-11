@@ -8,6 +8,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 // supply a `steps` array and copy; all the positioning/sequencing logic
 // lives here once instead of being duplicated per tour.
 //
+// No skip/dismiss control anywhere on purpose -- the walkthrough is meant
+// to be gone through, not bypassed. The only way through is Next/Finish.
+//
 // A step is one of:
 //   { kind: 'welcome' | 'done', title, body, cta? }  -- centered modal.
 //     `cta` (optional, welcome/done only) renders an extra link/button:
@@ -18,7 +21,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 //     target only renders for some roles). If not optional and the target
 //     is missing, the step still renders as a centered fallback card so
 //     the tour never just vanishes.
-export default function StepTour({ active, steps, onFinished, skipLabel = 'Skip', finishLabel = 'Finish' }) {
+export default function StepTour({ active, steps, onFinished, finishLabel = 'Finish' }) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState(null);
   const finishingRef = useRef(false);
@@ -68,10 +71,6 @@ export default function StepTour({ active, steps, onFinished, skipLabel = 'Skip'
     setIndex((i) => i + 1);
   }
 
-  function skip() {
-    finish();
-  }
-
   function renderCta(cta) {
     if (!cta) return null;
     if (cta.href) {
@@ -97,11 +96,6 @@ export default function StepTour({ active, steps, onFinished, skipLabel = 'Skip'
           <p>{step.body}</p>
           {renderCta(step.cta)}
           <div className="onboarding-modal-actions" style={{ marginTop: step.cta ? 10 : 0 }}>
-            {!isDone && (
-              <button type="button" className="secondary" onClick={skip}>
-                {skipLabel}
-              </button>
-            )}
             <button type="button" className="primary" onClick={isDone ? finish : next}>
               {isDone ? finishLabel : 'Start'}
             </button>
@@ -123,9 +117,6 @@ export default function StepTour({ active, steps, onFinished, skipLabel = 'Skip'
           <h2>{step.title}</h2>
           <p>{step.body}</p>
           <div className="onboarding-modal-actions">
-            <button type="button" className="secondary" onClick={skip}>
-              {skipLabel}
-            </button>
             <button type="button" className="primary" onClick={next}>
               {index >= resolvedSteps.length - 2 ? finishLabel : 'Next'}
             </button>
@@ -157,9 +148,6 @@ export default function StepTour({ active, steps, onFinished, skipLabel = 'Skip'
         <h3>{step.title}</h3>
         <p>{step.body}</p>
         <div className="onboarding-modal-actions">
-          <button type="button" className="secondary" onClick={skip}>
-            {skipLabel}
-          </button>
           <button type="button" className="primary" onClick={next}>
             {index >= resolvedSteps.length - 2 ? finishLabel : 'Next'}
           </button>
