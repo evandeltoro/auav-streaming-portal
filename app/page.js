@@ -1,5 +1,6 @@
 import { Building2, CalendarClock, Radio } from 'lucide-react';
 import { createClient } from '../lib/supabase/server';
+import { createAdminClient } from '../lib/supabase/admin';
 import { withPageError, assertNoError } from '../lib/withPageError';
 import InspectionList from '../components/InspectionList';
 import NewInspectionForm from '../components/NewInspectionForm';
@@ -70,6 +71,51 @@ async function HomePageInner() {
   const liveCount = inspections.filter((i) => i.status === 'live').length;
   const scheduledCount = inspections.filter((i) => i.status === 'scheduled').length;
 
+  // "N watching" + a live camera-quality dot on each live row, so staff and
+  // clients alike can tell which stream needs attention without opening
+  // it. viewer_sessions/stream_health_samples are staff-only via RLS (same
+  // as every other viewer-analytics table in this app), so this reads them
+  // through the admin client -- but only ever for the specific live
+  // inspection ids already returned by the RLS-scoped query above, meaning
+  // a client only ever sees a count/quality for an inspection they were
+  // already allowed to see in the first place, never raw session rows.
+  let viewerCountByInspection = {};
+  let qualityByInspection = {};
+  const liveIds = inspections.filter((i) => i.status === 'live').map((i) => i.id);
+  if (liveIds.length > 0) {
+    try {
+      const admin = createAdminClient();
+
+      const { data: openSessions, error: sessionsError } = await admin
+        .from('viewer_sessions')
+        .select('inspection_id')
+        .in('inspection_id', liveIds)
+        .is('left_at', null);
+      if (sessionsError) console.error('open viewer_sessions query failed:', sessionsError.message);
+      (openSessions || []).forEach((s) => {
+        viewerCountByInspection[s.inspection_id] = (viewerCountByInspection[s.inspection_id] || 0) + 1;
+      });
+
+      const { data: recentSamples, error: samplesError } = await admin
+        .from('stream_health_samples')
+        .select('inspection_id, quality, sampled_at')
+        .in('inspection_id', liveIds)
+        .order('sampled_at', { ascending: false })
+        .limit(500);
+      if (samplesError) console.error('recent stream_health_samples query failed:', samplesError.message);
+      (recentSamples || []).forEach((s) => {
+        // Rows arrive newest-first -- the first one seen per inspection is
+        // its most recent sample, so later duplicates are ignored.
+        if (!qualityByInspection[s.inspection_id]) {
+          qualityByInspection[s.inspection_id] = s.quality;
+        }
+      });
+    } catch {
+      // No service role key configured -- degrade gracefully, rows just
+      // won't show a viewer count or quality dot.
+    }
+  }
+
   return (
     <div className="page-wrap">
       <div className="stats-row">
@@ -108,7 +154,12 @@ async function HomePageInner() {
 
         {isStaff && <NewInspectionForm companies={companies} clients={clients} assets={assets} />}
 
-        <InspectionList inspections={inspections} isStaff={isStaff} />
+        <InspectionList
+          inspections={inspections}
+          isStaff={isStaff}
+          viewerCountByInspection={viewerCountByInspection}
+          qualityByInspection={qualityByInspection}
+        />
       </div>
     </div>
   );

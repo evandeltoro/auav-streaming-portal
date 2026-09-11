@@ -454,6 +454,25 @@ h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--text-primary); }
 .quality-chip.q-poor, .quality-chip.health-legend-poor { border-left-color: #f4795a; }
 .quality-chip.q-unknown, .quality-chip.health-legend-unknown { border-left-color: #9a9ca1; }
 
+/* Compact "N watching" + camera-quality dot on a live Dashboard row --
+   the video page itself already shows both of these (viewer panel +
+   quality-chip, see LiveVideo.js), this is the same information one level
+   up so a live stream that needs attention is visible without opening it. */
+.live-row-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.live-row-viewers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.quality-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.quality-dot.q-excellent { background: #4ade80; }
+.quality-dot.q-good { background: #facc15; }
+.quality-dot.q-poor { background: #f4795a; }
+.quality-dot.q-unknown { background: #9a9ca1; }
+
 .unmute-overlay {
   position: absolute;
   top: 50%;

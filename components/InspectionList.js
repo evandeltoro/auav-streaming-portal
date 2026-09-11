@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Inbox } from 'lucide-react';
+import { Eye, Inbox } from 'lucide-react';
 import { useToast } from './Toast';
 
 const STATUS_ACTION_LABEL = { live: 'went live', completed: 'ended', archived: 'archived' };
@@ -22,6 +22,8 @@ const STATUS_CLASS = {
   archived: 'offline',
 };
 
+const QUALITY_LABEL = { excellent: 'Excellent', good: 'Good', poor: 'Poor', unknown: 'Unknown' };
+
 function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(`${dateStr}T00:00:00`);
@@ -29,7 +31,7 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function InspectionList({ inspections, isStaff }) {
+export default function InspectionList({ inspections, isStaff, viewerCountByInspection = {}, qualityByInspection = {} }) {
   const router = useRouter();
   const showToast = useToast();
   const [busyId, setBusyId] = useState(null);
@@ -149,6 +151,20 @@ export default function InspectionList({ inspections, isStaff }) {
                 <span className="status-dot" />
                 {STATUS_LABEL[i.status]}
               </span>
+
+              {i.status === 'live' && (
+                <span className="live-row-meta">
+                  <span className="live-row-viewers">
+                    <Eye size={13} /> {viewerCountByInspection[i.id] || 0}
+                  </span>
+                  {qualityByInspection[i.id] && (
+                    <span
+                      className={`quality-dot q-${qualityByInspection[i.id]}`}
+                      title={`Field camera: ${QUALITY_LABEL[qualityByInspection[i.id]] || 'Unknown'}`}
+                    />
+                  )}
+                </span>
+              )}
 
               {isStaff && (
                 <div className="row-actions">
