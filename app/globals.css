@@ -1074,3 +1074,62 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
 
   .login-card { padding: 26px 20px 20px; }
 }
+
+/* Onboarding walkthrough -- welcome/done modals are centered overlays;
+   per-step highlights spotlight a sidebar nav item (see data-tour-id in
+   Sidebar.js) with a floating tooltip card next to it. z-index sits above
+   the toast stack (1000) since finishing the tour matters more than a
+   toast firing underneath it. */
+.onboarding-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-up .2s ease-out;
+}
+.onboarding-backdrop-spotlight {
+  background: rgba(0, 0, 0, 0.45);
+  display: block;
+}
+.onboarding-modal {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 28px;
+  max-width: 380px;
+  width: calc(100vw - 40px);
+  box-shadow: 0 20px 60px var(--shadow-strong);
+  text-align: center;
+}
+.onboarding-modal h2 { margin: 0 0 10px; font-size: 1.25rem; }
+.onboarding-modal p { margin: 0 0 20px; color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; }
+.onboarding-modal-actions { display: flex; gap: 10px; justify-content: center; }
+
+.onboarding-highlight {
+  position: fixed;
+  border: 2.5px solid var(--auav-orange);
+  border-radius: 10px;
+  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  transition: top .15s ease-out, left .15s ease-out;
+}
+.onboarding-tooltip {
+  position: fixed;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 18px 20px;
+  width: min(300px, calc(100vw - 40px));
+  box-shadow: 0 12px 40px var(--shadow-strong);
+}
+.onboarding-tooltip-step { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.4px; color: var(--auav-orange); text-transform: uppercase; margin-bottom: 6px; }
+.onboarding-tooltip h3 { margin: 0 0 8px; font-size: 1.05rem; }
+.onboarding-tooltip p { margin: 0 0 16px; color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; }
+.onboarding-tooltip .onboarding-modal-actions { justify-content: flex-end; }
+
+@media (max-width: 480px) {
+  .onboarding-tooltip { width: calc(100vw - 32px); }
+}

@@ -1,6 +1,7 @@
 import './globals.css';
 import Sidebar from '../components/Sidebar';
 import { ToastProvider } from '../components/Toast';
+import OnboardingTourGate from '../components/OnboardingTourGate';
 import { createClient } from '../lib/supabase/server';
 
 export const metadata = {
@@ -27,11 +28,17 @@ export default async function RootLayout({ children }) {
   let isStaff = false;
   let isAdmin = false;
   let email = '';
+  let needsOnboarding = false;
   if (user) {
     email = user.email || '';
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, onboarded_at')
+      .eq('id', user.id)
+      .single();
     isStaff = profile?.role === 'admin' || profile?.role === 'inspector';
     isAdmin = profile?.role === 'admin';
+    needsOnboarding = !!profile && !profile.onboarded_at;
   }
 
   return (
@@ -54,6 +61,7 @@ export default async function RootLayout({ children }) {
             <Sidebar email={email} isStaff={isStaff} isAdmin={isAdmin} />
             <main className="app-main">{children}</main>
           </div>
+          {user && <OnboardingTourGate initialNeedsOnboarding={needsOnboarding} isStaff={isStaff} isAdmin={isAdmin} />}
         </ToastProvider>
       </body>
     </html>

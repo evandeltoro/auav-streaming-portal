@@ -1,6 +1,7 @@
 import { createClient } from '../../lib/supabase/server';
 import { withPageError, assertNoError } from '../../lib/withPageError';
 import AccountNameForm from '../../components/AccountNameForm';
+import RestartTourButton from '../../components/RestartTourButton';
 
 export default async function AccountPage() {
   return withPageError(AccountPageInner);
@@ -28,6 +29,12 @@ async function AccountPageInner() {
           address.
         </p>
         <AccountNameForm currentName={profile?.full_name || ''} />
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h1>Portal Walkthrough</h1>
+        <p className="subtitle">Replay the guided tour of the sidebar and what each section does.</p>
+        <RestartTourButton />
       </div>
     </div>
   );
