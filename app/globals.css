@@ -473,6 +473,39 @@ h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--text-primary); }
 .quality-dot.q-poor { background: #f4795a; }
 .quality-dot.q-unknown { background: #9a9ca1; }
 
+/* Dashboard live/scheduled cards -- Twitch/YouTube-style "what's happening
+   now" grid, versus the dense list kept for the Archive page (completed/
+   archived), where scanning many past recordings matters more than a big
+   visual card per row. */
+.inspection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.inspection-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-surface-alt);
+  border: 1.3px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px;
+  transition: border-color .15s, background .15s;
+}
+.inspection-card:hover { border-color: var(--auav-orange); background: var(--bg-hover); }
+.inspection-card.is-live {
+  border-color: var(--auav-orange);
+  animation: inspection-card-pulse 2.4s ease-in-out infinite;
+}
+@keyframes inspection-card-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(243, 112, 33, 0.16); }
+  50% { box-shadow: 0 0 0 5px rgba(243, 112, 33, 0.1); }
+}
+.inspection-card-main { display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: inherit; }
+.inspection-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.inspection-card-title { font-size: 1rem; color: var(--text-primary); }
+.inspection-card .row-actions { flex-wrap: wrap; }
+
 .unmute-overlay {
   position: absolute;
   top: 50%;

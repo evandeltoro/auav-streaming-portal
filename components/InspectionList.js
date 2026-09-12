@@ -105,6 +105,53 @@ export default function InspectionList({ inspections, isStaff, viewerCountByInsp
     return matchesSearch && matchesCompany;
   });
 
+  // Live/scheduled (the Dashboard) render as a card grid -- closer to how
+  // Twitch/YouTube present "what's happening now" than a dense list, and
+  // it's where the live viewer count/quality dot actually matter at a
+  // glance. Completed/archived (the Archive page) stay a list -- once
+  // there are dozens of past recordings, scanning a list beats scrolling
+  // past big cards for something you're specifically looking for.
+  const cardItems = filtered.filter((i) => i.status === 'live' || i.status === 'scheduled');
+  const listItems = filtered.filter((i) => i.status === 'completed' || i.status === 'archived');
+
+  function renderActions(i) {
+    if (!isStaff) return null;
+    return (
+      <div className="row-actions">
+        {i.status !== 'live' && i.status !== 'completed' && i.status !== 'archived' && (
+          <button
+            className="small-btn go-live"
+            disabled={busyId === i.id}
+            onClick={() => setStatus(i.id, 'live', i.site)}
+          >
+            {busyId === i.id && <span className="spinner dark" />}
+            Go Live
+          </button>
+        )}
+        {i.status === 'live' && (
+          <button
+            className="small-btn end-live"
+            disabled={busyId === i.id}
+            onClick={() => setStatus(i.id, 'completed', i.site)}
+          >
+            {busyId === i.id && <span className="spinner dark" />}
+            End Stream
+          </button>
+        )}
+        {(i.status === 'completed' || i.status === 'archived') && i.status !== 'archived' && (
+          <button className="small-btn" disabled={busyId === i.id} onClick={() => setStatus(i.id, 'archived', i.site)}>
+            {busyId === i.id && <span className="spinner dark" />}
+            Archive
+          </button>
+        )}
+        <button className="small-btn end-live" disabled={busyId === i.id} onClick={() => deleteInspection(i.id, i.site)}>
+          {busyId === i.id && <span className="spinner dark" />}
+          Delete
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div>
       {(inspections.length > 1 || companyNames.length > 1) && (
@@ -134,83 +181,70 @@ export default function InspectionList({ inspections, isStaff, viewerCountByInsp
           <span>No inspections match your filters.</span>
         </div>
       ) : (
-        <div className="archive-list">
-          {filtered.map((i) => (
-            <div className="archive-item" key={i.id}>
-              <Link href={`/inspection/${i.id}`}>
-                <strong>{i.site}</strong>
-                <div className="meta-line">
-                  <span>{i.asset || 'Inspection'}</span>
-                  <span>· {formatDate(i.inspection_date)}</span>
-                  {i.pilot && <span>· Pilot: {i.pilot}</span>}
-                  {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
+        <>
+          {cardItems.length > 0 && (
+            <div className="inspection-grid">
+              {cardItems.map((i) => (
+                <div className={`inspection-card ${i.status === 'live' ? 'is-live' : ''}`} key={i.id}>
+                  <Link href={`/inspection/${i.id}`} className="inspection-card-main">
+                    <div className="inspection-card-top">
+                      <span className={`status-pill ${STATUS_CLASS[i.status]}`}>
+                        <span className="status-dot" />
+                        {STATUS_LABEL[i.status]}
+                      </span>
+                      {i.status === 'live' && (
+                        <span className="live-row-meta">
+                          <span className="live-row-viewers">
+                            <Eye size={13} /> {viewerCountByInspection[i.id] || 0}
+                          </span>
+                          {qualityByInspection[i.id] && (
+                            <span
+                              className={`quality-dot q-${qualityByInspection[i.id]}`}
+                              title={`Field camera: ${QUALITY_LABEL[qualityByInspection[i.id]] || 'Unknown'}`}
+                            />
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    <strong className="inspection-card-title">{i.site}</strong>
+                    <div className="meta-line">
+                      <span>{i.asset || 'Inspection'}</span>
+                      <span>· {formatDate(i.inspection_date)}</span>
+                      {i.pilot && <span>· Pilot: {i.pilot}</span>}
+                      {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
+                    </div>
+                  </Link>
+                  {renderActions(i)}
                 </div>
-              </Link>
-
-              <span className={`status-pill ${STATUS_CLASS[i.status]}`}>
-                <span className="status-dot" />
-                {STATUS_LABEL[i.status]}
-              </span>
-
-              {i.status === 'live' && (
-                <span className="live-row-meta">
-                  <span className="live-row-viewers">
-                    <Eye size={13} /> {viewerCountByInspection[i.id] || 0}
-                  </span>
-                  {qualityByInspection[i.id] && (
-                    <span
-                      className={`quality-dot q-${qualityByInspection[i.id]}`}
-                      title={`Field camera: ${QUALITY_LABEL[qualityByInspection[i.id]] || 'Unknown'}`}
-                    />
-                  )}
-                </span>
-              )}
-
-              {isStaff && (
-                <div className="row-actions">
-                  {i.status !== 'live' && i.status !== 'completed' && i.status !== 'archived' && (
-                    <button
-                      className="small-btn go-live"
-                      disabled={busyId === i.id}
-                      onClick={() => setStatus(i.id, 'live', i.site)}
-                    >
-                      {busyId === i.id && <span className="spinner dark" />}
-                      Go Live
-                    </button>
-                  )}
-                  {i.status === 'live' && (
-                    <button
-                      className="small-btn end-live"
-                      disabled={busyId === i.id}
-                      onClick={() => setStatus(i.id, 'completed', i.site)}
-                    >
-                      {busyId === i.id && <span className="spinner dark" />}
-                      End Stream
-                    </button>
-                  )}
-                  {(i.status === 'completed' || i.status === 'archived') && i.status !== 'archived' && (
-                    <button
-                      className="small-btn"
-                      disabled={busyId === i.id}
-                      onClick={() => setStatus(i.id, 'archived', i.site)}
-                    >
-                      {busyId === i.id && <span className="spinner dark" />}
-                      Archive
-                    </button>
-                  )}
-                  <button
-                    className="small-btn end-live"
-                    disabled={busyId === i.id}
-                    onClick={() => deleteInspection(i.id, i.site)}
-                  >
-                    {busyId === i.id && <span className="spinner dark" />}
-                    Delete
-                  </button>
-                </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+
+          {listItems.length > 0 && (
+            <div className="archive-list" style={{ marginTop: cardItems.length > 0 ? 16 : 0 }}>
+              {listItems.map((i) => (
+                <div className="archive-item" key={i.id}>
+                  <Link href={`/inspection/${i.id}`}>
+                    <strong>{i.site}</strong>
+                    <div className="meta-line">
+                      <span>{i.asset || 'Inspection'}</span>
+                      <span>· {formatDate(i.inspection_date)}</span>
+                      {i.pilot && <span>· Pilot: {i.pilot}</span>}
+                      {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
+                    </div>
+                  </Link>
+
+                  <span className={`status-pill ${STATUS_CLASS[i.status]}`}>
+                    <span className="status-dot" />
+                    {STATUS_LABEL[i.status]}
+                  </span>
+
+                  {renderActions(i)}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
