@@ -28,7 +28,18 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { company_id, site, asset, asset_id, pilot, inspection_type, inspection_date, surveyor_id, open_comms } = body;
+  const {
+    company_id,
+    site,
+    asset,
+    asset_id,
+    pilot,
+    inspection_type,
+    inspection_date,
+    inspection_time,
+    surveyor_id,
+    open_comms,
+  } = body;
 
   if (!company_id || !site) {
     return NextResponse.json({ error: 'company_id and site are required' }, { status: 400 });
@@ -80,6 +91,9 @@ export async function POST(request) {
       pilot: pilot || null,
       inspection_type: inspection_type || null,
       inspection_date: inspection_date || new Date().toISOString().slice(0, 10),
+      // Optional -- a date alone is enough to schedule a job, the time is
+      // just there for crews who want to coordinate an exact call time.
+      inspection_time: inspection_time || null,
       status: 'scheduled',
       livekit_room_name: roomName,
       created_by: user.id,

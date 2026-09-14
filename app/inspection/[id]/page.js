@@ -13,6 +13,17 @@ import RadioPanel from '../../../components/RadioPanel';
 import CommsModeToggle from '../../../components/CommsModeToggle';
 import DemoTourLauncher from '../../../components/DemoTourLauncher';
 
+// inspection_time is optional (Postgres "HH:MM:SS" or null) -- only append
+// it when a specific call time was actually set for this job.
+function formatScheduled(dateStr, timeStr) {
+  if (!dateStr) return '';
+  if (!timeStr) return dateStr;
+  const d = new Date(`${dateStr}T${timeStr}`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${dateStr}, ${timePart}`;
+}
+
 export default async function InspectionDetailPage({ params }) {
   return withPageError(() => InspectionDetailPageInner({ params }));
 }
@@ -39,7 +50,7 @@ async function InspectionDetailPageInner({ params }) {
   // not a real failure, so it's deliberately not passed to assertNoError.
   const { data: inspection } = await supabase
     .from('inspections')
-    .select('id, site, asset, pilot, inspection_date, inspection_type, status, livekit_room_name, went_live_at, company_id, surveyor_id, open_comms, is_demo, companies!inspections_company_id_fkey(name)')
+    .select('id, site, asset, pilot, inspection_date, inspection_time, inspection_type, status, livekit_room_name, went_live_at, company_id, surveyor_id, open_comms, is_demo, companies!inspections_company_id_fkey(name)')
     .eq('id', id)
     .single();
 
@@ -192,7 +203,7 @@ async function InspectionDetailPageInner({ params }) {
           {inspection.pilot ? ` — Pilot: ${inspection.pilot}` : ''}
           {inspection.companies?.name ? ` — ${inspection.companies.name}` : ''}
           {' — '}
-          {inspection.inspection_date}
+          {formatScheduled(inspection.inspection_date, inspection.inspection_time)}
         </p>
 
         {inspection.is_demo && <DemoTourLauncher />}

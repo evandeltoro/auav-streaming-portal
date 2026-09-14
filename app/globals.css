@@ -783,6 +783,8 @@ button.primary:disabled { background: #ccc; cursor: not-allowed; transform: none
   background: var(--input-bg);
   color: var(--text-primary);
 }
+.form-row-split { display: flex; gap: 12px; }
+.form-row-split > div { flex: 1; min-width: 0; }
 .form-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 .form-actions button.primary { width: auto; padding: 9px 18px; }
 button.secondary {

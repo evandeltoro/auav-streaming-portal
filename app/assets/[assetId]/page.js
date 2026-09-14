@@ -40,7 +40,7 @@ async function AssetDetailPageInner(assetId) {
 
   const { data: inspections, error: inspectionsError } = await supabase
     .from('inspections')
-    .select('id, site, asset, pilot, inspection_date, status, companies!inspections_company_id_fkey(name)')
+    .select('id, site, asset, pilot, inspection_date, inspection_time, status, companies!inspections_company_id_fkey(name)')
     .eq('asset_id', assetId)
     .order('inspection_date', { ascending: false });
   assertNoError('inspections query', inspectionsError);

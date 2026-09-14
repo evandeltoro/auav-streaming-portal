@@ -31,6 +31,18 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// timeStr comes back from Postgres as "HH:MM:SS" -- only rendered when a
+// call time was actually set, so a plain scheduled-for-a-day job (no
+// specific time) still just shows the date like before.
+function formatDateTime(dateStr, timeStr) {
+  const datePart = formatDate(dateStr);
+  if (!timeStr) return datePart;
+  const d = new Date(`${dateStr}T${timeStr}`);
+  if (Number.isNaN(d.getTime())) return datePart;
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${datePart}, ${timePart}`;
+}
+
 export default function InspectionList({
   inspections,
   isStaff,
@@ -227,7 +239,7 @@ export default function InspectionList({
                     <strong className="inspection-card-title">{i.site}</strong>
                     <div className="meta-line">
                       <span>{i.asset || 'Inspection'}</span>
-                      <span>· {formatDate(i.inspection_date)}</span>
+                      <span>· {formatDateTime(i.inspection_date, i.inspection_time)}</span>
                       {i.pilot && <span>· Pilot: {i.pilot}</span>}
                       {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
                     </div>
@@ -246,7 +258,7 @@ export default function InspectionList({
                     <strong>{i.site}</strong>
                     <div className="meta-line">
                       <span>{i.asset || 'Inspection'}</span>
-                      <span>· {formatDate(i.inspection_date)}</span>
+                      <span>· {formatDateTime(i.inspection_date, i.inspection_time)}</span>
                       {i.pilot && <span>· Pilot: {i.pilot}</span>}
                       {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
                     </div>

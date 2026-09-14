@@ -4,6 +4,17 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from './Toast';
 
+// yyyy-mm-dd in the browser's own timezone -- Date#toISOString() would
+// shift to UTC first and can land on the wrong day for anyone west of
+// Greenwich, which matters here since this seeds a date <input>.
+function todayLocalDate() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function NewInspectionForm({ companies, clients, assets }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -14,12 +25,17 @@ export default function NewInspectionForm({ companies, clients, assets }) {
   const [open, setOpen] = useState(searchParams.get('new') === '1');
 
   useEffect(() => {
+    // Depends on searchParams itself (not just []) so this fires again if
+    // the sidebar's quick action is clicked while already sitting on the
+    // Dashboard -- App Router updates the query string without remounting
+    // this component, so an empty dependency array would only ever catch
+    // the very first page load and silently do nothing on every click
+    // after that. This was the "+ New Inspection doesn't work" bug.
     if (searchParams.get('new') === '1') {
       setOpen(true);
       router.replace('/', { scroll: false });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams, router]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
@@ -29,6 +45,12 @@ export default function NewInspectionForm({ companies, clients, assets }) {
     asset_id: '',
     pilot: '',
     inspection_type: 'confined_space',
+    // Defaults to today so creating one still works exactly like before if
+    // nobody touches this field -- but it's a real input now, so staff can
+    // push it out to a future date (and optionally a call time) to actually
+    // schedule a job in advance instead of only ever creating "for now."
+    inspection_date: todayLocalDate(),
+    inspection_time: '',
     surveyor_id: '',
     open_comms: false,
   });
@@ -92,6 +114,8 @@ export default function NewInspectionForm({ companies, clients, assets }) {
       asset_id: '',
       pilot: '',
       inspection_type: 'confined_space',
+      inspection_date: todayLocalDate(),
+      inspection_time: '',
       surveyor_id: '',
       open_comms: false,
     });
@@ -119,6 +143,17 @@ export default function NewInspectionForm({ companies, clients, assets }) {
 
       <label>Site</label>
       <input value={form.site} onChange={(e) => update('site', e.target.value)} placeholder="e.g. Gulf Platform 4" required />
+
+      <div className="form-row-split">
+        <div>
+          <label>Date</label>
+          <input type="date" value={form.inspection_date} onChange={(e) => update('inspection_date', e.target.value)} required />
+        </div>
+        <div>
+          <label>Call time (optional)</label>
+          <input type="time" value={form.inspection_time} onChange={(e) => update('inspection_time', e.target.value)} />
+        </div>
+      </div>
 
       <label>Asset</label>
       {assetOptions.length === 0 ? (
