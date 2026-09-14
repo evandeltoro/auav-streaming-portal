@@ -95,6 +95,12 @@ export default function TownHall({
   // 'waiting'|'accepted'|'declined'|'timeout', action, targetSite }
   const [myRequestStatus, setMyRequestStatus] = useState(null);
   const requestTimeoutRef = useRef(null);
+  // Full roster + who's currently talking -- separate from the imperative
+  // tilesRef/activeSpeakersRef system that drives the video grid (that one
+  // stays DOM-managed for perf, since it's juggling actual video streams).
+  // A name list is cheap enough to just be normal React state.
+  const [participants, setParticipants] = useState(() => [{ identity: 'you', name: currentUserName || 'You' }]);
+  const [speakingIds, setSpeakingIds] = useState(() => new Set());
 
   const isPresenter = Boolean(nowPlayingId) && Boolean(currentUserId) && nowPlayingBy === currentUserId;
 
@@ -493,6 +499,22 @@ export default function TownHall({
     activeSpeakersRef.current.delete(identity);
   }
 
+  function upsertParticipant(identity, name) {
+    setParticipants((prev) => {
+      const existing = prev.find((p) => p.identity === identity);
+      if (existing) {
+        return name && name !== existing.name
+          ? prev.map((p) => (p.identity === identity ? { ...p, name } : p))
+          : prev;
+      }
+      return [...prev, { identity, name: name || 'Someone' }];
+    });
+  }
+
+  function removeParticipant(identity) {
+    setParticipants((prev) => prev.filter((p) => p.identity !== identity));
+  }
+
   // Decides, out of everyone currently in the room, whose video actually
   // gets subscribed: the pinned participant (if any) always gets a slot,
   // the rest are filled by current active speakers, up to MAX_VIDEO_TILES
@@ -568,14 +590,17 @@ export default function TownHall({
           );
           activeSpeakersRef.current = nextKeys;
           nextKeys.forEach((identity) => setSpeaking(identity, true));
+          setSpeakingIds(nextKeys);
           applyVideoPolicy();
         });
         room.on(RoomEvent.ParticipantConnected, (participant) => {
           tileFor(participant.identity, participant.name);
+          upsertParticipant(participant.identity, participant.name);
           setCount(room.remoteParticipants.size + 1);
         });
         room.on(RoomEvent.ParticipantDisconnected, (participant) => {
           removeParticipantTile(participant.identity);
+          removeParticipant(participant.identity);
           setCount(room.remoteParticipants.size + 1);
           applyVideoPolicy();
         });
@@ -614,6 +639,7 @@ export default function TownHall({
         // decide who gets a live feed.
         room.remoteParticipants.forEach((participant) => {
           tileFor(participant.identity, participant.name);
+          upsertParticipant(participant.identity, participant.name);
           subscribeAllAudio(participant);
         });
         applyVideoPolicy();
@@ -646,6 +672,8 @@ export default function TownHall({
       audioElsRef.current.clear();
       pinnedRef.current = null;
       activeSpeakersRef.current = new Set();
+      setParticipants([{ identity: 'you', name: currentUserName || 'You' }]);
+      setSpeakingIds(new Set());
     };
   }, [companyId]);
 
@@ -823,7 +851,38 @@ export default function TownHall({
         </div>
       )}
 
-      <div className="conference-grid" ref={gridRef} />
+      <div className="townhall-video-row">
+        <div className="conference-grid" ref={gridRef} />
+        {/* Once more people are in the room than can get a live video slot
+            (see MAX_VIDEO_TILES), most of them sit off-screen as an
+            initials bubble unless they happen to speak or get pinned -- this
+            keeps everyone visible by name regardless, with whoever's
+            currently talking highlighted so it doubles as "who's off-camera
+            and talking right now." Hidden at or under the threshold since
+            the video grid alone already shows everyone at that size. */}
+        {count > MAX_VIDEO_TILES && (
+          <div className="townhall-roster">
+            <div className="townhall-roster-title">
+              <Users size={14} /> Everyone in the room ({count})
+            </div>
+            <div className="townhall-roster-list">
+              {participants.map((p) => (
+                <div
+                  key={p.identity}
+                  className={`townhall-roster-row ${speakingIds.has(p.identity) ? 'is-speaking' : ''}`}
+                >
+                  <span className="townhall-roster-dot" style={{ background: colorForIdentity(p.identity) }} />
+                  <span className="townhall-roster-name">
+                    {p.name}
+                    {p.identity === 'you' ? ' (you)' : ''}
+                  </span>
+                  {speakingIds.has(p.identity) && <Mic size={12} className="townhall-roster-mic" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
       {status === 'connected' && (
         <div className="townhall-controls-row">
           <button type="button" className="small-btn" onClick={toggleMic}>

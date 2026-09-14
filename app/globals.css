@@ -975,12 +975,48 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
 .townhall-share-card { margin-bottom: 14px; }
 .townhall-controls-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 
+.townhall-video-row { display: flex; align-items: flex-start; gap: 12px; margin-top: 10px; }
 .conference-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
-  margin-top: 10px;
+  flex: 1;
+  min-width: 0;
 }
+.townhall-roster {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--bg-surface-alt);
+  border: 1.3px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px;
+}
+.townhall-roster-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.townhall-roster-list { display: flex; flex-direction: column; gap: 2px; }
+.townhall-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary, var(--text-primary));
+}
+.townhall-roster-row.is-speaking {
+  background: rgba(243, 112, 33, 0.12);
+  color: var(--text-primary);
+}
+.townhall-roster-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.townhall-roster-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.townhall-roster-mic { color: var(--auav-orange); flex-shrink: 0; }
 .conference-tile {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -1185,6 +1221,9 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
 
   .stream-layout { flex-direction: column; }
   .viewer-panel { width: 100%; }
+
+  .townhall-video-row { flex-direction: column; }
+  .townhall-roster { width: 100%; }
 
   .viewer-history-row, .viewer-history-row-2col { grid-template-columns: 1fr; gap: 2px; }
 
