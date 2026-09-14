@@ -49,6 +49,92 @@ function SignupLinkBox() {
   );
 }
 
+// Standing, revocable per-company invite link -- the code-based alternative
+// to InviteForm below. Anyone with the link self-serves their own
+// name/email/password and lands directly under this company (unlike the
+// generic Sign-Up Link above, which drops new sign-ups in as Unassigned).
+// One active link per company at a time: revoke before generating a
+// replacement rather than letting old and new links both work.
+function CompanyInviteCodeBox({ companyId, inviteCodes, onDone }) {
+  const showToast = useToast();
+  const [origin, setOrigin] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  const active = (inviteCodes || []).find((c) => !c.revoked_at);
+
+  async function generate() {
+    setGenerating(true);
+    setError('');
+    const res = await fetch('/api/invite-codes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'client', company_id: companyId }),
+    });
+    const data = await res.json();
+    setGenerating(false);
+    if (!res.ok) {
+      setError(data.error || 'Failed to generate invite link');
+      return;
+    }
+    onDone();
+  }
+
+  async function revoke() {
+    if (!window.confirm('Revoke this invite link? Anyone who still has it will no longer be able to use it to join.')) {
+      return;
+    }
+    setRevoking(true);
+    const res = await fetch(`/api/invite-codes/${active.id}`, { method: 'DELETE' });
+    const data = await res.json();
+    setRevoking(false);
+    if (!res.ok) {
+      showToast(data.error || 'Failed to revoke link', 'error');
+      return;
+    }
+    showToast('Invite link revoked', 'success');
+    onDone();
+  }
+
+  return (
+    <div className="viewer-history" style={{ marginTop: 10, marginBottom: 10 }}>
+      <div className="viewer-history-title">Company Invite Link</div>
+      {active && origin ? (
+        <>
+          <div className="meta-line" style={{ marginBottom: 8 }}>
+            Anyone with this link can join as a client under this company -- no email needed. Standing
+            until you revoke it.
+          </div>
+          <CopyLinkBox link={`${origin}/join/${active.code}`} label="Link" />
+          <div className="form-actions" style={{ marginTop: 8 }}>
+            <button type="button" className="small-btn end-live" disabled={revoking} onClick={revoke}>
+              {revoking && <span className="spinner dark" />}
+              Revoke
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="meta-line" style={{ marginBottom: 8 }}>
+            Generate a standing link for this company -- clients enter their own name, email, and
+            password, no invite email required.
+          </div>
+          <button type="button" className="small-btn go-live" disabled={generating} onClick={generate}>
+            {generating && <span className="spinner dark" />}
+            Generate Invite Link
+          </button>
+        </>
+      )}
+      {error && <div className="error-text">{error}</div>}
+    </div>
+  );
+}
+
 function InviteForm({ companyId, onDone }) {
   const [email, setEmail] = useState('');
   const [linkOnly, setLinkOnly] = useState(false);
@@ -508,7 +594,14 @@ function AssetsSection({ companyId, assets, onDone }) {
   );
 }
 
-export default function ClientsManager({ companies, clientsByCompany, assetsByCompany, allClients, isAdmin }) {
+export default function ClientsManager({
+  companies,
+  clientsByCompany,
+  assetsByCompany,
+  inviteCodesByCompany,
+  allClients,
+  isAdmin,
+}) {
   const router = useRouter();
   const showToast = useToast();
   const [deletingId, setDeletingId] = useState(null);
@@ -586,6 +679,12 @@ export default function ClientsManager({ companies, clientsByCompany, assetsByCo
               )}
 
               <AssetsSection companyId={company.id} assets={assets} onDone={refresh} />
+
+              <CompanyInviteCodeBox
+                companyId={company.id}
+                inviteCodes={(inviteCodesByCompany && inviteCodesByCompany[company.id]) || []}
+                onDone={refresh}
+              />
 
               <InviteForm companyId={company.id} onDone={refresh} />
             </div>

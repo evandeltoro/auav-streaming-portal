@@ -102,6 +102,125 @@ function InviteForm({ onDone }) {
   );
 }
 
+function codeStatusInfo(c) {
+  if (c.revoked_at) return { label: 'Revoked', cls: 'offline' };
+  if (c.expires_at && new Date(c.expires_at).getTime() < Date.now()) return { label: 'Expired', cls: 'offline' };
+  if (c.max_uses != null && c.use_count >= c.max_uses) return { label: 'Used', cls: 'offline' };
+  return { label: 'Active', cls: 'live' };
+}
+
+// Code-based alternative to InviteForm above -- same admin-only access
+// grant, just delivered as a code/link instead of an email, for when email
+// (to a coworker's own strict corporate gateway, ironically) isn't
+// reliable. Deliberately not a standing link like the client one below:
+// single use, 48-hour expiry, since this role can see every client's data.
+function GenerateStaffCodeForm({ onDone }) {
+  const [role, setRole] = useState('inspector');
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState('');
+  const [link, setLink] = useState('');
+
+  async function generate() {
+    setGenerating(true);
+    setError('');
+    setLink('');
+    const res = await fetch('/api/invite-codes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role }),
+    });
+    const data = await res.json();
+    setGenerating(false);
+    if (!res.ok) {
+      setError(data.error || 'Failed to generate code');
+      return;
+    }
+    setLink(data.link);
+    onDone();
+  }
+
+  return (
+    <div className="new-inspection-form" style={{ marginBottom: 18 }}>
+      <label>Or generate an invite code -- no email needed</label>
+      <select value={role} onChange={(e) => setRole(e.target.value)}>
+        <option value="inspector">Inspector -- runs inspections, no team management</option>
+        <option value="admin">Admin -- full access, including this Team page</option>
+      </select>
+      <div className="meta-line" style={{ marginTop: 8, marginBottom: 0 }}>
+        Single use, expires in 48 hours -- share it however you want (Slack, text, in person).
+      </div>
+      <div className="form-actions">
+        <button type="button" className="primary" disabled={generating} onClick={generate}>
+          {generating && <span className="spinner" />}
+          {generating ? 'Generating...' : 'Generate Code'}
+        </button>
+      </div>
+      {link && (
+        <div className="cred-field" style={{ marginTop: 4 }}>
+          <label>Invite link -- send this to them yourself</label>
+          <CopyField value={link} />
+        </div>
+      )}
+      <div className="error-text">{error}</div>
+    </div>
+  );
+}
+
+function InviteCodeRow({ inviteCode, onDone }) {
+  const showToast = useToast();
+  const [busy, setBusy] = useState(false);
+  const info = codeStatusInfo(inviteCode);
+
+  async function revoke() {
+    setBusy(true);
+    const res = await fetch(`/api/invite-codes/${inviteCode.id}`, { method: 'DELETE' });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      showToast(data.error || 'Failed to revoke code', 'error');
+      return;
+    }
+    showToast('Invite code revoked', 'success');
+    onDone();
+  }
+
+  return (
+    <div className="viewer-history-row" style={{ alignItems: 'center' }}>
+      <div>
+        <span className="viewer-history-name">{inviteCode.code}</span>
+        <span className="viewer-history-when"> · {ROLE_LABEL[inviteCode.role] || inviteCode.role}</span>
+        <span
+          className={`status-pill ${info.cls}`}
+          style={{ marginLeft: 8, marginTop: 0, padding: '2px 8px', fontSize: '0.72rem' }}
+        >
+          <span className="status-dot" />
+          {info.label}
+        </span>
+      </div>
+      {info.label === 'Active' && (
+        <button type="button" className="small-btn end-live" disabled={busy} onClick={revoke}>
+          {busy && <span className="spinner dark" />}
+          Revoke
+        </button>
+      )}
+    </div>
+  );
+}
+
+function InviteCodesList({ inviteCodes, onDone }) {
+  if (!inviteCodes || inviteCodes.length === 0) return null;
+  return (
+    <div className="viewer-history" style={{ marginBottom: 18 }}>
+      <div className="viewer-history-title">Recent Invite Codes</div>
+      <div className="viewer-history-list">
+        {inviteCodes.map((c) => (
+          <InviteCodeRow key={c.id} inviteCode={c} onDone={onDone} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TeamRow({ member, isSelf, companies, onDone }) {
   const showToast = useToast();
   const [busy, setBusy] = useState(false);
@@ -305,7 +424,7 @@ function TeamRow({ member, isSelf, companies, onDone }) {
   );
 }
 
-export default function TeamManager({ teamMembers, currentUserId, companies }) {
+export default function TeamManager({ teamMembers, currentUserId, companies, inviteCodes }) {
   const router = useRouter();
 
   function refresh() {
@@ -315,6 +434,8 @@ export default function TeamManager({ teamMembers, currentUserId, companies }) {
   return (
     <div>
       <InviteForm onDone={refresh} />
+      <GenerateStaffCodeForm onDone={refresh} />
+      <InviteCodesList inviteCodes={inviteCodes} onDone={refresh} />
 
       <div className="meta-line" style={{ marginBottom: 12 }}>
         Already-registered accounts (like someone who signed up as a client) can&apos;t be re-invited here --

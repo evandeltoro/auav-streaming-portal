@@ -90,6 +90,24 @@ async function ClientsPageInner() {
     assetsByCompany[a.company_id].push(a);
   });
 
+  // Standing, revocable per-company invite codes -- the code-based
+  // alternative to typing each client's email. One active link per company
+  // is the expected steady state; older/revoked rows stick around here too
+  // so ClientsManager can show "already have one" instead of letting you
+  // stack duplicates.
+  const { data: inviteCodes, error: inviteCodesError } = await supabase
+    .from('invite_codes')
+    .select('id, code, company_id, expires_at, max_uses, use_count, revoked_at, created_at')
+    .eq('role', 'client')
+    .order('created_at', { ascending: false });
+  assertNoError('client invite codes query', inviteCodesError);
+
+  const inviteCodesByCompany = {};
+  (inviteCodes || []).forEach((c) => {
+    if (!inviteCodesByCompany[c.company_id]) inviteCodesByCompany[c.company_id] = [];
+    inviteCodesByCompany[c.company_id].push(c);
+  });
+
   return (
     <div className="page-wrap">
       <div className="card">
@@ -99,6 +117,7 @@ async function ClientsPageInner() {
           companies={companies || []}
           clientsByCompany={clientsByCompany}
           assetsByCompany={assetsByCompany}
+          inviteCodesByCompany={inviteCodesByCompany}
           allClients={allClients}
           isAdmin={profile?.role === 'admin'}
         />

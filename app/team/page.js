@@ -61,12 +61,28 @@ async function TeamPageInner() {
     }))
     .sort((a, b) => (a.full_name || a.email || '').localeCompare(b.full_name || b.email || ''));
 
+  // Staff invite codes -- single-use, short-expiry, generated per person
+  // (see /api/invite-codes) as the code-based alternative to typing an
+  // email, without turning "become an admin" into a standing reusable code.
+  const { data: inviteCodes, error: inviteCodesError } = await supabase
+    .from('invite_codes')
+    .select('id, code, role, expires_at, max_uses, use_count, revoked_at, created_at')
+    .in('role', ['admin', 'inspector'])
+    .order('created_at', { ascending: false })
+    .limit(20);
+  assertNoError('staff invite codes query', inviteCodesError);
+
   return (
     <div className="page-wrap">
       <div className="card">
         <h1>Team</h1>
         <p className="subtitle">Manage who has admin or inspector access to the portal</p>
-        <TeamManager teamMembers={teamMembers} currentUserId={user.id} companies={companies || []} />
+        <TeamManager
+          teamMembers={teamMembers}
+          currentUserId={user.id}
+          companies={companies || []}
+          inviteCodes={inviteCodes || []}
+        />
       </div>
     </div>
   );
