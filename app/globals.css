@@ -1028,10 +1028,11 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
   align-items: center;
   justify-content: center;
 }
-.conference-avatar-circle svg {
-  width: 55%;
-  height: 55%;
-  color: #cfcfcf;
+.conference-avatar-initials {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
 }
 .conference-tile-pinnable {
   cursor: pointer;

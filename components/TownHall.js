@@ -19,12 +19,30 @@ const STATUS_LABEL = { scheduled: 'Scheduled', live: 'LIVE', completed: 'Complet
 // instead of asking every browser to decode a video stream per participant.
 const MAX_VIDEO_TILES = 4;
 
-// Teams-style placeholder for anyone whose video isn't currently on screen
-// (camera off, or just not an active speaker/pinned) -- a generic person
-// silhouette in a circle, instead of a plain dark box, so it reads clearly
-// as "no video" rather than looking like a broken/black feed.
-const PERSON_SILHOUETTE_SVG =
-  '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8.2" r="4.2"/><path d="M4 20.2c0-4.5 3.6-7.4 8-7.4s8 2.9 8 7.4v.4H4v-.4z"/></svg>';
+// Placeholder for anyone whose video isn't currently on screen (camera
+// off, or just not an active speaker/pinned) -- initials in a colored
+// circle (same idea as Slack/Teams/Zoom), not a generic silhouette, so
+// whoever it is is identifiable at a glance without having to read the
+// small name tag underneath.
+const AVATAR_PALETTE = ['#f37021', '#2e7dd6', '#2fa35e', '#b04fd8', '#d6455a', '#3fb0b0', '#c9932b', '#7562d1'];
+
+function getInitials(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return '?';
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+// Hashes the (stable) LiveKit identity, not the display name, so a given
+// person's color never changes even if their name arrives a beat late.
+function colorForIdentity(identity) {
+  let hash = 0;
+  for (let i = 0; i < identity.length; i++) {
+    hash = (hash * 31 + identity.charCodeAt(i)) >>> 0;
+  }
+  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+}
 
 // Standing multi-party video room, one per client company. Everyone
 // registered under that company (plus staff) can drop in any time -- this
@@ -376,7 +394,7 @@ export default function TownHall({
 
       const avatar = document.createElement('div');
       avatar.className = 'conference-avatar';
-      avatar.innerHTML = `<div class="conference-avatar-circle">${PERSON_SILHOUETTE_SVG}</div>`;
+      avatar.innerHTML = `<div class="conference-avatar-circle" style="background:${colorForIdentity(identity)}"><span class="conference-avatar-initials">${getInitials(name)}</span></div>`;
       wrapper.appendChild(avatar);
 
       const tag = document.createElement('span');
@@ -395,6 +413,11 @@ export default function TownHall({
       tilesRef.current.set(identity, tile);
     } else if (name) {
       tile.tag.textContent = name;
+      // Name can arrive a beat after the tile is first created (e.g. local
+      // 'you' tile before the profile name loads) -- keep the initials in
+      // sync so it doesn't get stuck on "?".
+      const initialsEl = tile.avatar.querySelector('.conference-avatar-initials');
+      if (initialsEl) initialsEl.textContent = getInitials(name);
     }
     return tile;
   }
