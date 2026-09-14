@@ -81,6 +81,7 @@ async function HomePageInner() {
   // already allowed to see in the first place, never raw session rows.
   let viewerCountByInspection = {};
   let qualityByInspection = {};
+  let thumbnailByInspection = {};
   const liveIds = inspections.filter((i) => i.status === 'live').map((i) => i.id);
   if (liveIds.length > 0) {
     try {
@@ -110,9 +111,31 @@ async function HomePageInner() {
           qualityByInspection[s.inspection_id] = s.quality;
         }
       });
+
+      // Live-thumbnail cards: one `{id}.jpg` object per inspection, written
+      // by LiveVideo.js while at least one viewer is connected (see
+      // app/api/inspections/[id]/thumbnail/route.js). Signed individually
+      // and wrapped per-id so a stream nobody's watched yet (no object in
+      // the bucket) just quietly has no thumbnail instead of failing the
+      // whole page.
+      const signedEntries = await Promise.all(
+        liveIds.map(async (id) => {
+          try {
+            const { data: signed } = await admin.storage
+              .from('thumbnails')
+              .createSignedUrl(`${id}.jpg`, 300);
+            return [id, signed?.signedUrl || null];
+          } catch {
+            return [id, null];
+          }
+        })
+      );
+      signedEntries.forEach(([id, url]) => {
+        if (url) thumbnailByInspection[id] = url;
+      });
     } catch {
       // No service role key configured -- degrade gracefully, rows just
-      // won't show a viewer count or quality dot.
+      // won't show a viewer count, quality dot, or thumbnail.
     }
   }
 
@@ -159,6 +182,7 @@ async function HomePageInner() {
           isStaff={isStaff}
           viewerCountByInspection={viewerCountByInspection}
           qualityByInspection={qualityByInspection}
+          thumbnailByInspection={thumbnailByInspection}
         />
       </div>
     </div>

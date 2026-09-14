@@ -24,6 +24,14 @@ function isFieldCameraIdentity(identity) {
   return !!identity && identity.startsWith('obs-');
 }
 
+function grabFrameJpeg(video) {
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 1280;
+  canvas.height = video.videoHeight || 720;
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
 function formatElapsed(from) {
   if (!from) return '';
   const secs = Math.max(0, Math.floor((Date.now() - from.getTime()) / 1000));
@@ -138,12 +146,7 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt }) {
     setSnapMsg('');
 
     try {
-      const video = videoRef.current;
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 1280;
-      canvas.height = video.videoHeight || 720;
-      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      const dataUrl = grabFrameJpeg(videoRef.current);
 
       const res = await fetch(`/api/inspections/${inspectionId}/messages/snapshot`, {
         method: 'POST',
@@ -249,6 +252,38 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt }) {
       roomRef.current?.disconnect();
     };
   }, [room, inspectionId, retryKey]);
+
+  // Feeds the Dashboard's live-card thumbnail -- piggybacks on whoever's
+  // already watching rather than standing up dedicated snapshot
+  // infrastructure (see the route's own comment for why). Runs in every
+  // connected viewer's tab; harmless if more than one fires in the same
+  // window; goes quiet the moment nobody's left watching.
+  useEffect(() => {
+    if (status !== 'live') return;
+
+    let inFlight = false;
+    function captureThumbnail() {
+      if (inFlight || !videoRef.current || !videoRef.current.videoWidth) return;
+      inFlight = true;
+      const dataUrl = grabFrameJpeg(videoRef.current);
+      fetch(`/api/inspections/${inspectionId}/thumbnail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl }),
+      })
+        .catch(() => {
+          // Best-effort -- a missed thumbnail update just means the
+          // Dashboard card looks slightly stale until the next tick.
+        })
+        .finally(() => {
+          inFlight = false;
+        });
+    }
+
+    captureThumbnail();
+    const thumbInterval = setInterval(captureThumbnail, 60000);
+    return () => clearInterval(thumbInterval);
+  }, [status, inspectionId]);
 
   const pillMap = {
     connecting: { cls: 'waiting', label: 'Connecting...' },

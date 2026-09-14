@@ -31,7 +31,13 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export default function InspectionList({ inspections, isStaff, viewerCountByInspection = {}, qualityByInspection = {} }) {
+export default function InspectionList({
+  inspections,
+  isStaff,
+  viewerCountByInspection = {},
+  qualityByInspection = {},
+  thumbnailByInspection = {},
+}) {
   const router = useRouter();
   const showToast = useToast();
   const [busyId, setBusyId] = useState(null);
@@ -187,6 +193,18 @@ export default function InspectionList({ inspections, isStaff, viewerCountByInsp
               {cardItems.map((i) => (
                 <div className={`inspection-card ${i.status === 'live' ? 'is-live' : ''}`} key={i.id}>
                   <Link href={`/inspection/${i.id}`} className="inspection-card-main">
+                    {i.status === 'live' && (
+                      <div className="inspection-card-thumb">
+                        {thumbnailByInspection[i.id] ? (
+                          <img src={thumbnailByInspection[i.id]} alt="" />
+                        ) : (
+                          <div className="inspection-card-thumb-placeholder">
+                            <Eye size={20} strokeWidth={1.5} />
+                            <span>Preview appears once someone's watching</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="inspection-card-top">
                       <span className={`status-pill ${STATUS_CLASS[i.status]}`}>
                         <span className="status-dot" />
