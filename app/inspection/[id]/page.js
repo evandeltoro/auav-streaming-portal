@@ -12,6 +12,7 @@ import DemoSurveyorClaim from '../../../components/DemoSurveyorClaim';
 import RadioPanel from '../../../components/RadioPanel';
 import CommsModeToggle from '../../../components/CommsModeToggle';
 import DemoTourLauncher from '../../../components/DemoTourLauncher';
+import { isLockedForRole } from '../../../lib/scheduling';
 
 // inspection_time is optional (Postgres "HH:MM:SS" or null) -- only append
 // it when a specific call time was actually set for this job.
@@ -60,6 +61,23 @@ async function InspectionDetailPageInner({ params }) {
         <div className="card">
           <div className="archive-empty">
             This inspection either doesn&apos;t exist or you don&apos;t have access to it.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mirrors the same lock the Dashboard card enforces -- someone who
+  // bookmarks or guesses the URL shouldn't get in early just because the
+  // card itself was disabled. is_demo skips this entirely, it's not a real
+  // schedule.
+  if (!inspection.is_demo && isLockedForRole(inspection, profile?.role)) {
+    return (
+      <div className="page-wrap">
+        <div className="card">
+          <div className="archive-empty">
+            &quot;{inspection.site}&quot; isn&apos;t open yet -- it becomes available an hour before its
+            scheduled time ({formatScheduled(inspection.inspection_date, inspection.inspection_time)}).
           </div>
         </div>
       </div>

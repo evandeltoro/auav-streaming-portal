@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, Inbox } from 'lucide-react';
+import { Eye, Inbox, Lock } from 'lucide-react';
+import { isLockedForRole } from '../lib/scheduling';
 import { useToast } from './Toast';
 
 const STATUS_ACTION_LABEL = { live: 'went live', completed: 'ended', archived: 'archived' };
@@ -46,6 +47,7 @@ function formatDateTime(dateStr, timeStr) {
 export default function InspectionList({
   inspections,
   isStaff,
+  role,
   viewerCountByInspection = {},
   qualityByInspection = {},
   thumbnailByInspection = {},
@@ -132,6 +134,98 @@ export default function InspectionList({
   const cardItems = filtered.filter((i) => i.status === 'live' || i.status === 'scheduled');
   const listItems = filtered.filter((i) => i.status === 'completed' || i.status === 'archived');
 
+  // Only worth grouping cards under an asset heading once there's actually
+  // more than one asset in play among what's currently showing -- a single
+  // client with one rig, or a staff view filtered to one company, would
+  // just get a pointless lone header above everything. Returns null to mean
+  // "render flat", same as before.
+  function groupCardsByAsset(items) {
+    const distinctNames = new Set(items.map((i) => i.assets?.name || null));
+    if (distinctNames.size <= 1) return null;
+
+    const groups = new Map();
+    items.forEach((i) => {
+      const label = i.assets?.name || 'No Asset Assigned';
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(i);
+    });
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => {
+        if (a === 'No Asset Assigned') return 1;
+        if (b === 'No Asset Assigned') return -1;
+        return a.localeCompare(b);
+      })
+      .map(([label, groupItems]) => ({ label, items: groupItems }));
+  }
+
+  function renderCard(i) {
+    const locked = isLockedForRole(i, role);
+    const cardBody = (
+      <>
+        {i.status === 'live' && (
+          <div className="inspection-card-thumb">
+            {thumbnailByInspection[i.id] ? (
+              <img src={thumbnailByInspection[i.id]} alt="" />
+            ) : (
+              <div className="inspection-card-thumb-placeholder">
+                <Eye size={20} strokeWidth={1.5} />
+                <span>Preview appears once someone's watching</span>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="inspection-card-top">
+          <span className={`status-pill ${STATUS_CLASS[i.status]}`}>
+            <span className="status-dot" />
+            {STATUS_LABEL[i.status]}
+          </span>
+          {i.status === 'live' && (
+            <span className="live-row-meta">
+              <span className="live-row-viewers">
+                <Eye size={13} /> {viewerCountByInspection[i.id] || 0}
+              </span>
+              {qualityByInspection[i.id] && (
+                <span
+                  className={`quality-dot q-${qualityByInspection[i.id]}`}
+                  title={`Field camera: ${QUALITY_LABEL[qualityByInspection[i.id]] || 'Unknown'}`}
+                />
+              )}
+            </span>
+          )}
+        </div>
+        <strong className="inspection-card-title">{i.site}</strong>
+        <div className="meta-line">
+          <span>{i.asset || i.assets?.name || 'Inspection'}</span>
+          <span>· {formatDateTime(i.inspection_date, i.inspection_time)}</span>
+          {i.pilot && <span>· Pilot: {i.pilot}</span>}
+          {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
+        </div>
+        {locked && (
+          <div className="inspection-card-locked-note">
+            <Lock size={12} />
+            Opens 1 hour before start
+          </div>
+        )}
+      </>
+    );
+
+    return (
+      <div className={`inspection-card ${i.status === 'live' ? 'is-live' : ''}`} key={i.id}>
+        {locked ? (
+          <div className="inspection-card-main inspection-card-locked" aria-disabled="true">
+            {cardBody}
+          </div>
+        ) : (
+          <Link href={`/inspection/${i.id}`} className="inspection-card-main">
+            {cardBody}
+          </Link>
+        )}
+        {renderActions(i)}
+      </div>
+    );
+  }
+
   function renderActions(i) {
     if (!isStaff) return null;
     return (
@@ -200,55 +294,22 @@ export default function InspectionList({
         </div>
       ) : (
         <>
-          {cardItems.length > 0 && (
-            <div className="inspection-grid">
-              {cardItems.map((i) => (
-                <div className={`inspection-card ${i.status === 'live' ? 'is-live' : ''}`} key={i.id}>
-                  <Link href={`/inspection/${i.id}`} className="inspection-card-main">
-                    {i.status === 'live' && (
-                      <div className="inspection-card-thumb">
-                        {thumbnailByInspection[i.id] ? (
-                          <img src={thumbnailByInspection[i.id]} alt="" />
-                        ) : (
-                          <div className="inspection-card-thumb-placeholder">
-                            <Eye size={20} strokeWidth={1.5} />
-                            <span>Preview appears once someone's watching</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div className="inspection-card-top">
-                      <span className={`status-pill ${STATUS_CLASS[i.status]}`}>
-                        <span className="status-dot" />
-                        {STATUS_LABEL[i.status]}
-                      </span>
-                      {i.status === 'live' && (
-                        <span className="live-row-meta">
-                          <span className="live-row-viewers">
-                            <Eye size={13} /> {viewerCountByInspection[i.id] || 0}
-                          </span>
-                          {qualityByInspection[i.id] && (
-                            <span
-                              className={`quality-dot q-${qualityByInspection[i.id]}`}
-                              title={`Field camera: ${QUALITY_LABEL[qualityByInspection[i.id]] || 'Unknown'}`}
-                            />
-                          )}
-                        </span>
-                      )}
-                    </div>
-                    <strong className="inspection-card-title">{i.site}</strong>
-                    <div className="meta-line">
-                      <span>{i.asset || 'Inspection'}</span>
-                      <span>· {formatDateTime(i.inspection_date, i.inspection_time)}</span>
-                      {i.pilot && <span>· Pilot: {i.pilot}</span>}
-                      {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}
-                    </div>
-                  </Link>
-                  {renderActions(i)}
-                </div>
-              ))}
-            </div>
-          )}
+          {cardItems.length > 0 && (() => {
+            const assetGroups = groupCardsByAsset(cardItems);
+            if (!assetGroups) {
+              return <div className="inspection-grid">{cardItems.map(renderCard)}</div>;
+            }
+            return (
+              <div>
+                {assetGroups.map((g) => (
+                  <div key={g.label} style={{ marginBottom: 18 }}>
+                    <div className="sidebar-group-label" style={{ padding: '0 0 8px' }}>{g.label}</div>
+                    <div className="inspection-grid">{g.items.map(renderCard)}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {listItems.length > 0 && (
             <div className="archive-list" style={{ marginTop: cardItems.length > 0 ? 16 : 0 }}>
@@ -257,7 +318,7 @@ export default function InspectionList({
                   <Link href={`/inspection/${i.id}`}>
                     <strong>{i.site}</strong>
                     <div className="meta-line">
-                      <span>{i.asset || 'Inspection'}</span>
+                      <span>{i.asset || i.assets?.name || 'Inspection'}</span>
                       <span>· {formatDateTime(i.inspection_date, i.inspection_time)}</span>
                       {i.pilot && <span>· Pilot: {i.pilot}</span>}
                       {i.companies?.name && <span className="company-chip">· {i.companies.name}</span>}

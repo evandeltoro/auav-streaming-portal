@@ -23,7 +23,9 @@ async function ArchivePageInner() {
 
   const { data: inspections, error: inspectionsError } = await supabase
     .from('inspections')
-    .select('id, site, asset, pilot, inspection_date, inspection_time, status, companies!inspections_company_id_fkey(name)')
+    .select(
+      'id, site, asset, asset_id, pilot, inspection_date, inspection_time, status, companies!inspections_company_id_fkey(name), assets!inspections_asset_id_fkey(name)'
+    )
     .in('status', ['completed', 'archived'])
     .order('inspection_date', { ascending: false });
   assertNoError('inspections query', inspectionsError);
@@ -33,7 +35,7 @@ async function ArchivePageInner() {
       <div className="card">
         <h1>Archived Streams</h1>
         <p className="subtitle">Recordings scoped to your account automatically</p>
-        <InspectionList inspections={inspections} isStaff={isStaff} />
+        <InspectionList inspections={inspections} isStaff={isStaff} role={profile?.role} />
       </div>
     </div>
   );

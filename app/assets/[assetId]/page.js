@@ -53,7 +53,7 @@ async function AssetDetailPageInner(assetId) {
           {isStaff && asset.companies?.name ? `${asset.companies.name} · ` : ''}
           Inspections on this asset only
         </p>
-        <InspectionList inspections={inspections} isStaff={isStaff} />
+        <InspectionList inspections={inspections} isStaff={isStaff} role={profile?.role} />
       </div>
     </div>
   );

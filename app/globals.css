@@ -533,6 +533,17 @@ h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--text-primary); }
 }
 .inspection-card-thumb-placeholder span { font-size: .72rem; line-height: 1.3; }
 
+.inspection-card-locked { cursor: not-allowed; opacity: 0.72; }
+.inspection-card-locked-note {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
 .unmute-overlay {
   position: absolute;
   top: 50%;

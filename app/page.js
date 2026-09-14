@@ -26,7 +26,9 @@ async function HomePageInner() {
 
   const { data: rawInspections, error: inspectionsError } = await supabase
     .from('inspections')
-    .select('id, site, asset, pilot, inspection_date, inspection_time, status, companies!inspections_company_id_fkey(name)')
+    .select(
+      'id, site, asset, asset_id, pilot, inspection_date, inspection_time, status, companies!inspections_company_id_fkey(name), assets!inspections_asset_id_fkey(name)'
+    )
     .in('status', ['scheduled', 'live'])
     // The practice inspection lives under its own /demo entry point, not
     // mixed into everyone's real job list -- especially important for
@@ -180,6 +182,7 @@ async function HomePageInner() {
         <InspectionList
           inspections={inspections}
           isStaff={isStaff}
+          role={profile?.role}
           viewerCountByInspection={viewerCountByInspection}
           qualityByInspection={qualityByInspection}
           thumbnailByInspection={thumbnailByInspection}
