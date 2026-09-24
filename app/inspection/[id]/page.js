@@ -12,6 +12,7 @@ import DemoSurveyorClaim from '../../../components/DemoSurveyorClaim';
 import RadioPanel from '../../../components/RadioPanel';
 import CommsModeToggle from '../../../components/CommsModeToggle';
 import DemoTourLauncher from '../../../components/DemoTourLauncher';
+import EditInspectionForm from '../../../components/EditInspectionForm';
 import { isLockedForRole } from '../../../lib/scheduling';
 
 // inspection_time is optional (Postgres "HH:MM:SS" or null) -- only append
@@ -51,7 +52,7 @@ async function InspectionDetailPageInner({ params }) {
   // not a real failure, so it's deliberately not passed to assertNoError.
   const { data: inspection } = await supabase
     .from('inspections')
-    .select('id, site, asset, pilot, inspection_date, inspection_time, inspection_type, status, livekit_room_name, went_live_at, company_id, surveyor_id, open_comms, is_demo, companies!inspections_company_id_fkey(name)')
+    .select('id, site, asset, asset_id, pilot, inspection_date, inspection_time, inspection_type, status, livekit_room_name, went_live_at, company_id, surveyor_id, open_comms, is_demo, companies!inspections_company_id_fkey(name)')
     .eq('id', id)
     .single();
 
@@ -212,6 +213,20 @@ async function InspectionDetailPageInner({ params }) {
   // something to hide.
   const commsAccessAllowed = isStaff || isSurveyor || inspection.open_comms || inspection.is_demo;
 
+  // Scoped to this inspection's company, same pool NewInspectionForm draws
+  // from when creating one -- not editable here (see EditInspectionForm),
+  // just needed to populate the asset dropdown.
+  let companyAssets = [];
+  if (isStaff && !inspection.is_demo) {
+    const { data, error } = await supabase
+      .from('assets')
+      .select('id, name')
+      .eq('company_id', inspection.company_id)
+      .order('name');
+    if (error) console.error('assets query failed:', error.message);
+    companyAssets = data || [];
+  }
+
   return (
     <div className="page-wrap">
       <div className="card">
@@ -225,6 +240,10 @@ async function InspectionDetailPageInner({ params }) {
         </p>
 
         {inspection.is_demo && <DemoTourLauncher />}
+
+        {isStaff && !inspection.is_demo && (
+          <EditInspectionForm inspection={inspection} assets={companyAssets} />
+        )}
 
         {credentials && (
           <StreamCredentials whipUrl={credentials.whip_url} streamKey={credentials.stream_key} />

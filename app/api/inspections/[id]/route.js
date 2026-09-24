@@ -28,13 +28,38 @@ export async function PATCH(request, { params }) {
   }
 
   const body = await request.json();
-  const { status, surveyor_id, open_comms } = body;
+  const {
+    status,
+    surveyor_id,
+    open_comms,
+    site,
+    asset,
+    asset_id,
+    pilot,
+    inspection_type,
+    inspection_date,
+    inspection_time,
+  } = body;
 
   if (status !== undefined && !ALLOWED_STATUSES.includes(status)) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
   }
-  if (status === undefined && surveyor_id === undefined && open_comms === undefined) {
+  const detailFields = [site, asset, asset_id, pilot, inspection_type, inspection_date, inspection_time];
+  if (
+    status === undefined &&
+    surveyor_id === undefined &&
+    open_comms === undefined &&
+    detailFields.every((f) => f === undefined)
+  ) {
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+  }
+  // site is required at creation time -- if it's included in this edit at
+  // all, don't let it be cleared to blank.
+  if (site !== undefined && !site) {
+    return NextResponse.json({ error: 'Site is required' }, { status: 400 });
+  }
+  if (inspection_date !== undefined && !inspection_date) {
+    return NextResponse.json({ error: 'Date is required' }, { status: 400 });
   }
 
   const { data: current } = await supabase
@@ -45,6 +70,18 @@ export async function PATCH(request, { params }) {
 
   if (!current) {
     return NextResponse.json({ error: 'Inspection not found' }, { status: 404 });
+  }
+
+  // Defense in depth, same check as at creation time -- an asset_id has to
+  // actually belong to this inspection's company. Company itself isn't
+  // editable here (too much else keys off it -- credentials, RLS scoping,
+  // who can see the job at all), so this always checks against the
+  // inspection's existing company_id, never a submitted one.
+  if (asset_id) {
+    const { data: assetRow } = await supabase.from('assets').select('id, company_id').eq('id', asset_id).single();
+    if (!assetRow || assetRow.company_id !== current.company_id) {
+      return NextResponse.json({ error: 'Asset must belong to this inspection\'s company' }, { status: 400 });
+    }
   }
 
   // Surveyor reassignment (no-show, redo, wrong pick at creation, etc.) --
@@ -79,6 +116,13 @@ export async function PATCH(request, { params }) {
   if (status !== undefined) updates.status = status;
   if (surveyor_id !== undefined) updates.surveyor_id = surveyor_id;
   if (open_comms !== undefined) updates.open_comms = !!open_comms;
+  if (site !== undefined) updates.site = site;
+  if (asset !== undefined) updates.asset = asset || null;
+  if (asset_id !== undefined) updates.asset_id = asset_id || null;
+  if (pilot !== undefined) updates.pilot = pilot || null;
+  if (inspection_type !== undefined) updates.inspection_type = inspection_type || null;
+  if (inspection_date !== undefined) updates.inspection_date = inspection_date;
+  if (inspection_time !== undefined) updates.inspection_time = inspection_time || null;
 
   // Going live: start a recording -- but only once the field camera has
   // actually connected. Staff can click "Go Live" before OBS has started
