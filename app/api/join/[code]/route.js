@@ -4,9 +4,8 @@ import { inviteCodeStatus } from '../../../../lib/inviteCode';
 import { composeFullName } from '../../../../lib/name';
 
 // No authenticated caller here by design -- this is how someone with no
-// account yet turns a code into one. The code itself, re-validated
-// server-side against the same rules the join page used to decide what to
-// render, is the entire authorization check.
+// account yet turns a code into one. The code itself is the entire
+// authorization check.
 export async function POST(request, { params }) {
   const { code } = await params;
   const body = await request.json();
@@ -32,11 +31,32 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 
-  const { data: inviteRow } = await admin.from('invite_codes').select('*').eq('code', code.toUpperCase()).maybeSingle();
-  const status = inviteCodeStatus(inviteRow);
-  if (status !== 'valid') {
+  const normalizedCode = code.toUpperCase();
+
+  // Atomically claims one use via a single conditional UPDATE (see the
+  // redeem_invite_code migration) instead of the old read-then-write,
+  // which had a real race: concurrent requests hitting the same single-use
+  // admin code at once could all read use_count below max_uses and all
+  // succeed, turning one invite into unlimited admin accounts. This is the
+  // actual authorization decision -- everything below only runs once a use
+  // has been claimed.
+  const { data: claimedRows, error: claimError } = await admin.rpc('redeem_invite_code', {
+    p_code: normalizedCode,
+  });
+
+  if (claimError) {
+    return NextResponse.json({ error: claimError.message }, { status: 500 });
+  }
+
+  const inviteRow = claimedRows?.[0];
+
+  if (!inviteRow) {
+    // The claim failed -- this lookup is purely to pick the right error
+    // message, it plays no part in the authorization decision above.
+    const { data: lookupRow } = await admin.from('invite_codes').select('*').eq('code', normalizedCode).maybeSingle();
+    const status = inviteCodeStatus(lookupRow);
     const messages = {
-      not_found: 'This invite link is not valid. Ask whoever sent it for a new one.',
+      not_found: "This invite link isn't valid. Ask whoever sent it for a new one.",
       revoked: 'This invite link has been revoked. Ask whoever sent it for a new one.',
       expired: 'This invite link has expired. Ask whoever sent it for a new one.',
       used_up: 'This invite link has already been used. Ask whoever sent it for a new one.',
@@ -58,6 +78,9 @@ export async function POST(request, { params }) {
   });
 
   if (createError) {
+    // Give the claimed use back -- a failed signup attempt (e.g. email
+    // already registered) shouldn't burn the code.
+    await admin.rpc('release_invite_code', { p_id: inviteRow.id });
     const alreadyRegistered = /already registered|already exists/i.test(createError.message);
     return NextResponse.json(
       { error: alreadyRegistered ? 'That email already has an account. Try signing in instead.' : createError.message },
@@ -82,8 +105,6 @@ export async function POST(request, { params }) {
       { status: 500 }
     );
   }
-
-  await admin.from('invite_codes').update({ use_count: inviteRow.use_count + 1 }).eq('id', inviteRow.id);
 
   return NextResponse.json({ ok: true, email });
 }
