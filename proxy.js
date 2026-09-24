@@ -4,8 +4,11 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './lib/supabase/config';
 
 // /auth/callback is hit by invite/magic-link emails before the visitor has
 // a session -- it's the thing that CREATES the session, so it can't
-// require one first.
-const PUBLIC_PATHS = ['/login', '/auth/callback', '/signup'];
+// require one first. /join is the same idea for code-based invites: the
+// whole point is someone with no account yet redeeming a code, so it can't
+// sit behind the login wall either (this was missed when /join shipped --
+// caught in the security audit).
+const PUBLIC_PATHS = ['/login', '/auth/callback', '/signup', '/join'];
 
 export async function proxy(request) {
   let response = NextResponse.next({ request });

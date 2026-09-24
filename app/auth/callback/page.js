@@ -24,6 +24,7 @@ export default function AuthCallbackPage() {
       const params = new URLSearchParams(hash.slice(1));
       const access_token = params.get('access_token');
       const refresh_token = params.get('refresh_token');
+      const type = params.get('type');
 
       if (!access_token || !refresh_token) {
         setError('This link is invalid or has expired. Ask staff to resend your invite.');
@@ -41,7 +42,10 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      router.replace('/set-password');
+      // Recovery links ("forgot password") land an existing account here
+      // too -- they already have a name and don't need the first-time
+      // invite flow (which asks for one), just a new password.
+      router.replace(type === 'recovery' ? '/reset-password' : '/set-password');
     }
 
     run();

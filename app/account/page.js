@@ -2,6 +2,7 @@ import { createClient } from '../../lib/supabase/server';
 import { withPageError, assertNoError } from '../../lib/withPageError';
 import AccountNameForm from '../../components/AccountNameForm';
 import RestartTourButton from '../../components/RestartTourButton';
+import ChangePasswordForm from '../../components/ChangePasswordForm';
 
 export default async function AccountPage() {
   return withPageError(AccountPageInner);
@@ -29,6 +30,12 @@ async function AccountPageInner() {
           address.
         </p>
         <AccountNameForm currentName={profile?.full_name || ''} />
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <h1>Change Password</h1>
+        <p className="subtitle">Update the password you use to sign in.</p>
+        <ChangePasswordForm />
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
