@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowDown, MessageSquare } from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
 
@@ -16,6 +16,17 @@ function formatTime(iso) {
 }
 
 export default function ChatBox({ inspectionId, initialMessages, currentUserId, canSend }) {
+  // LiveVideo now mounts a second ChatBox inside its fullscreen overlay
+  // (same inspection, same messages) so chat stays reachable in fullscreen.
+  // createBrowserClient() is a singleton in the browser, so both instances
+  // share one underlying Supabase client -- if they both subscribed to a
+  // channel named just `messages-{inspectionId}`, the second .subscribe()
+  // call collides with the first's already-open channel of the same name
+  // and throws, crashing the page. useId() gives each mounted instance its
+  // own channel name; the actual filtering (which rows this channel
+  // receives) is unaffected since that's driven by postgres_changes' own
+  // table/filter config below, not the channel name itself.
+  const instanceId = useId();
   const [messages, setMessages] = useState(initialMessages || []);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -28,7 +39,7 @@ export default function ChatBox({ inspectionId, initialMessages, currentUserId, 
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel(`messages-${inspectionId}`)
+      .channel(`messages-${inspectionId}-${instanceId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `inspection_id=eq.${inspectionId}` },
@@ -41,7 +52,7 @@ export default function ChatBox({ inspectionId, initialMessages, currentUserId, 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [inspectionId]);
+  }, [inspectionId, instanceId]);
 
   // Land at the bottom on first load only -- everything after this is
   // handled by the effect below, which decides per-message whether to
