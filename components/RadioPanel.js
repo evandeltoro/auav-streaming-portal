@@ -13,7 +13,7 @@ import { useCommsMute } from './CommsMuteContext';
 // available independent of whether the inspection is live, and it never
 // touches the recorded egress -- the egress only ever composites the main
 // video room, and this audio was never published there in the first place.
-export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
+export default function RadioPanel({ inspectionId, heading = 'Voice Comms', subheading }) {
   const roomRef = useRef(null);
   const audioContainerRef = useRef(null);
   const commsMute = useCommsMute();
@@ -145,6 +145,15 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
         <RadioIcon size={16} />
         {heading}
       </div>
+      {/* Mode context (field radio / open demo / with inspector) used to be
+         crammed into the title itself, which wrapped badly once this panel
+         moved into the narrow sidebar column -- demoted to a small muted
+         line so the title stays short but the context isn't lost. */}
+      {subheading && (
+        <div className="meta-line" style={{ marginTop: -8, marginBottom: 10 }}>
+          {subheading}
+        </div>
+      )}
 
       <div ref={audioContainerRef} />
 
@@ -167,7 +176,7 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
             Connected -- {peerCount > 0 ? `${peerCount} other party on the line` : 'waiting for the other party to join'}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          <div className="radio-panel-actions">
             <button type="button" className="small-btn" onClick={toggleMute}>
               {muted ? <MicOff size={14} /> : <Mic size={14} />}
               {muted ? ' Unmute' : ' Mute'}
@@ -179,7 +188,7 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
 
           {inputDevices.length > 0 && (
             <div className="cred-field">
-              <label>Microphone (select the comHub puck if it's paired)</label>
+              <label title="Select the comHub puck here if it's paired">Input</label>
               <select value={selectedInput} onChange={(e) => changeInput(e.target.value)}>
                 <option value="">System default</option>
                 {inputDevices.map((d) => (
@@ -193,7 +202,7 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
 
           {outputSupported && outputDevices.length > 0 && (
             <div className="cred-field">
-              <label>Speaker output (select the comHub puck to route into Channel 2)</label>
+              <label title="Select the comHub puck here to route into Channel 2">Output</label>
               <select value={selectedOutput} onChange={(e) => changeOutput(e.target.value)}>
                 <option value="">System default</option>
                 {outputDevices.map((d) => (

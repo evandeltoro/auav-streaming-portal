@@ -929,11 +929,23 @@ button.secondary:hover { border-color: var(--auav-orange); color: var(--auav-ora
 .stream-layout { display: flex; gap: 14px; align-items: flex-start; }
 .stream-layout > div:first-child { flex: 1; min-width: 0; }
 .stream-sidebar {
-  width: 210px;
+  width: 240px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+/* Mute/Leave Comms side-by-side comfortably in the full-width standalone
+   spot (scheduled/demo states), but the sidebar column is too narrow for
+   both at once with room to breathe -- stack them there instead. */
+.radio-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.stream-sidebar .radio-panel-actions { flex-direction: column; }
+.stream-sidebar .radio-panel-actions .small-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 /* Voice Comms sits below the viewer list in the same right-hand column
    (sized down to fit) instead of spanning full-width under the video --

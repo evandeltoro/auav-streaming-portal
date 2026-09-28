@@ -226,14 +226,14 @@ async function InspectionDetailPageInner({ params }) {
     commsOpen && commsAccessAllowed ? (
       <RadioPanel
         inspectionId={inspection.id}
-        heading={
+        subheading={
           inspection.is_demo
-            ? 'Voice Comms (Practice)'
+            ? 'Practice'
             : isStaff
-            ? 'Voice Comms (field radio)'
+            ? 'Field radio'
             : inspection.open_comms
-            ? 'Voice Comms (Open -- Demo Mode)'
-            : 'Voice Comms with Inspector'
+            ? 'Open -- Demo Mode'
+            : 'With Inspector'
         }
       />
     ) : null;
