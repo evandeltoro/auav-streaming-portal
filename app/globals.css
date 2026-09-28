@@ -384,6 +384,7 @@ h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--text-primary); }
   gap: 6px;
 }
 .video-control-btn {
+  position: relative;
   width: 32px;
   height: 32px;
   flex-shrink: 0;
@@ -396,6 +397,17 @@ h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--text-primary); }
   color: #fff;
   cursor: pointer;
   transition: background .15s;
+}
+.video-control-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--auav-orange);
+  border: 1.5px solid rgba(0, 0, 0, 0.55);
+  animation: pulse-dot 1.6s ease-in-out infinite;
 }
 .video-control-btn:hover { background: rgba(0, 0, 0, 0.78); }
 .video-control-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -665,6 +677,7 @@ h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--text-primary); }
   z-index: 5;
   border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
+.video-chat-overlay-hidden { display: none; }
 .video-chat-overlay-header {
   display: flex;
   align-items: center;

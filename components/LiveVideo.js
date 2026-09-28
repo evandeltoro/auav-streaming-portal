@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { LIVEKIT_URL } from '../lib/supabase/config';
 import { useCommsMute } from './CommsMuteContext';
+import { useChatNotify } from './ChatNotifyContext';
 
 // The field camera (OBS via WHIP ingress) joins the room too, as identity
 // `obs-{inspectionId}` -- see lib/livekit/ingress.js. It's the broadcaster,
@@ -55,6 +56,7 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt, chat }) {
   const roomRef = useRef(null);
   const containerRef = useRef(null);
   const commsMute = useCommsMute();
+  const chatNotify = useChatNotify();
   const [status, setStatus] = useState('connecting'); // connecting | waiting | live | offline | error
   const [errorMsg, setErrorMsg] = useState('');
   const [viewers, setViewers] = useState([]); // [{ identity, name, joinedAt }]
@@ -383,19 +385,30 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt, chat }) {
                 <button
                   type="button"
                   className={`video-control-btn ${chatOpen ? 'is-active' : ''}`}
-                  onClick={() => setChatOpen((o) => !o)}
+                  onClick={() => {
+                    setChatOpen((o) => !o);
+                    chatNotify?.markSeen();
+                  }}
                   aria-label={chatOpen ? 'Close chat' : 'Open chat'}
                   title={chatOpen ? 'Close chat' : 'Open chat'}
                 >
                   <MessageSquare size={16} />
+                  {!chatOpen && chatNotify?.hasUnread && <span className="video-control-badge" />}
                 </button>
               )}
               {snapMsg && <span className="snap-msg">{snapMsg}</span>}
             </div>
           )}
 
-          {chat && chatOpen && (
-            <div className="video-chat-overlay">
+          {/* Stays mounted once chat exists, even while closed -- ChatBox's
+             initialMessages is only ever the page's load-time snapshot, so
+             unmounting on close and remounting on reopen would drop every
+             message sent or received in between (it'd remount from that
+             stale snapshot, not what was actually on screen a moment ago).
+             Hidden with display:none instead, which keeps its state (and
+             its Realtime subscription) alive the whole time. */}
+          {chat && (
+            <div className={`video-chat-overlay ${chatOpen ? '' : 'video-chat-overlay-hidden'}`}>
               <div className="video-chat-overlay-header">
                 <span>Inspection Chat</span>
                 <button type="button" className="video-chat-overlay-close" onClick={() => setChatOpen(false)} aria-label="Close chat">

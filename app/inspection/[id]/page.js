@@ -14,6 +14,7 @@ import CommsModeToggle from '../../../components/CommsModeToggle';
 import DemoTourLauncher from '../../../components/DemoTourLauncher';
 import EditInspectionForm from '../../../components/EditInspectionForm';
 import { CommsMuteProvider } from '../../../components/CommsMuteContext';
+import { ChatNotifyProvider } from '../../../components/ChatNotifyContext';
 import { isLockedForRole } from '../../../lib/scheduling';
 
 // inspection_time is optional (Postgres "HH:MM:SS" or null) -- only append
@@ -250,6 +251,7 @@ async function InspectionDetailPageInner({ params }) {
           <StreamCredentials whipUrl={credentials.whip_url} streamKey={credentials.stream_key} />
         )}
 
+        <ChatNotifyProvider>
         <CommsMuteProvider>
           {inspection.status === 'live' ? (
             inspection.is_demo ? (
@@ -336,6 +338,7 @@ async function InspectionDetailPageInner({ params }) {
           currentUserId={user.id}
           canSend={inspection.status === 'live'}
         />
+        </ChatNotifyProvider>
       </div>
     </div>
   );

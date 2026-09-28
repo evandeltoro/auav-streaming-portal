@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowDown, MessageSquare } from 'lucide-react';
 import { createClient } from '../lib/supabase/client';
+import { useChatNotify } from './ChatNotifyContext';
 
 // How close to the bottom (in px) counts as "already caught up" -- inside
 // this band, new messages still auto-scroll the view.
@@ -27,6 +28,13 @@ export default function ChatBox({ inspectionId, initialMessages, currentUserId, 
   // receives) is unaffected since that's driven by postgres_changes' own
   // table/filter config below, not the channel name itself.
   const instanceId = useId();
+  const chatNotify = useChatNotify();
+  // Read via ref inside the subscribe effect below instead of depending on
+  // chatNotify directly -- its context value is a new object every time
+  // hasUnread flips, and re-running the effect would tear down and
+  // resubscribe the Realtime channel on every incoming message.
+  const chatNotifyRef = useRef(chatNotify);
+  chatNotifyRef.current = chatNotify;
   const [messages, setMessages] = useState(initialMessages || []);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -45,6 +53,13 @@ export default function ChatBox({ inspectionId, initialMessages, currentUserId, 
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `inspection_id=eq.${inspectionId}` },
         (payload) => {
           setMessages((prev) => (prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]));
+          // Flags LiveVideo's fullscreen chat toggle regardless of whether
+          // this particular instance is the visible one right now -- the
+          // point is "something arrived while nobody had chat open," not
+          // this instance's own scroll position.
+          if (payload.new.sender_id !== currentUserId) {
+            chatNotifyRef.current?.reportMessage();
+          }
         }
       )
       .subscribe();
@@ -52,7 +67,7 @@ export default function ChatBox({ inspectionId, initialMessages, currentUserId, 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [inspectionId, instanceId]);
+  }, [inspectionId, instanceId, currentUserId]);
 
   // Land at the bottom on first load only -- everything after this is
   // handled by the effect below, which decides per-message whether to
