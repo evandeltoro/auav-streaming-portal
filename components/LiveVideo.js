@@ -393,7 +393,7 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt, chat }) {
                   title={chatOpen ? 'Close chat' : 'Open chat'}
                 >
                   <MessageSquare size={16} />
-                  {!chatOpen && chatNotify?.hasUnread && <span className="video-control-badge" />}
+                  {!chatOpen && chatNotify?.hasUnread && <span className="video-control-badge">!</span>}
                 </button>
               )}
               {snapMsg && <span className="snap-msg">{snapMsg}</span>}
