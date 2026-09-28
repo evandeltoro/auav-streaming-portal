@@ -5,6 +5,7 @@ import { Room, RoomEvent } from 'livekit-client';
 import { Mic, MicOff, PhoneOff, Radio as RadioIcon } from 'lucide-react';
 import { LIVEKIT_URL } from '../lib/supabase/config';
 import { filterRegularDevices } from '../lib/audioDevices';
+import { useCommsMute } from './CommsMuteContext';
 
 // Voice comms between the assigned surveyor and the field inspector's
 // streaming laptop, over the puck's Channel 2. This connects to a room
@@ -15,6 +16,7 @@ import { filterRegularDevices } from '../lib/audioDevices';
 export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
   const roomRef = useRef(null);
   const audioContainerRef = useRef(null);
+  const commsMute = useCommsMute();
   const [status, setStatus] = useState('idle'); // idle | connecting | connected | error
   const [errorMsg, setErrorMsg] = useState('');
   const [muted, setMuted] = useState(false);
@@ -32,7 +34,9 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
   useEffect(() => {
     return () => {
       roomRef.current?.disconnect();
+      commsMute?.register(null);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function refreshDevices() {
@@ -84,12 +88,17 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
 
       setPeerCount(room.remoteParticipants.size);
       setStatus('connected');
+      // Hand the mute toggle to the shared context -- lets LiveVideo mirror
+      // a mute button inside .video-box, which is the only place a mute
+      // control actually stays reachable once the video goes fullscreen.
+      commsMute?.register(toggleMute, false);
       await refreshDevices();
     } catch (err) {
       setStatus('error');
       setErrorMsg(err.message);
       roomRef.current?.disconnect();
       roomRef.current = null;
+      commsMute?.register(null);
     }
   }
 
@@ -98,14 +107,22 @@ export default function RadioPanel({ inspectionId, heading = 'Voice Comms' }) {
     roomRef.current = null;
     setStatus('idle');
     setPeerCount(0);
+    commsMute?.register(null);
   }
 
   async function toggleMute() {
     const room = roomRef.current;
     if (!room) return;
-    const nextMuted = !muted;
+    // Reads the mic's actual current state off the room instead of closing
+    // over this render's `muted` -- this function gets handed to
+    // CommsMuteContext once at connect() time and called again later from
+    // LiveVideo's mirrored button, by which point a closure over `muted`
+    // would be stale (React re-renders make a fresh toggleMute each time,
+    // but only the original one ever got registered).
+    const nextMuted = room.localParticipant.isMicrophoneEnabled;
     await room.localParticipant.setMicrophoneEnabled(!nextMuted);
     setMuted(nextMuted);
+    commsMute?.setMuted(nextMuted);
   }
 
   async function changeInput(deviceId) {

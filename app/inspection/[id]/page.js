@@ -13,6 +13,7 @@ import RadioPanel from '../../../components/RadioPanel';
 import CommsModeToggle from '../../../components/CommsModeToggle';
 import DemoTourLauncher from '../../../components/DemoTourLauncher';
 import EditInspectionForm from '../../../components/EditInspectionForm';
+import { CommsMuteProvider } from '../../../components/CommsMuteContext';
 import { isLockedForRole } from '../../../lib/scheduling';
 
 // inspection_time is optional (Postgres "HH:MM:SS" or null) -- only append
@@ -249,52 +250,71 @@ async function InspectionDetailPageInner({ params }) {
           <StreamCredentials whipUrl={credentials.whip_url} streamKey={credentials.stream_key} />
         )}
 
-        {inspection.status === 'live' ? (
-          inspection.is_demo ? (
-            <DemoVideo />
+        <CommsMuteProvider>
+          {inspection.status === 'live' ? (
+            inspection.is_demo ? (
+              <DemoVideo />
+            ) : (
+              <LiveVideo
+                room={inspection.livekit_room_name}
+                inspectionId={inspection.id}
+                wentLiveAt={inspection.went_live_at}
+                // Same chat feed as the one below on the page, rendered as
+                // an overlay inside .video-box -- the surveyor's ask was
+                // specifically to reach chat without leaving fullscreen,
+                // which a sibling element can't do (see CommsMuteContext's
+                // comment for why the mic button needed the same treatment).
+                chat={
+                  <ChatBox
+                    inspectionId={inspection.id}
+                    initialMessages={initialMessages || []}
+                    currentUserId={user.id}
+                    canSend={inspection.status === 'live'}
+                  />
+                }
+              />
+            )
+          ) : inspection.status === 'scheduled' ? (
+            <div className="archive-empty">
+              Not live yet. Start streaming in OBS with the credentials above — this will go live
+              automatically.
+            </div>
+          ) : recordingUrl ? (
+            <div className="video-box">
+              <video src={recordingUrl} controls playsInline />
+            </div>
+          ) : recordingPending ? (
+            <div className="archive-empty">
+              Recording is still processing — check back in a few minutes.
+            </div>
           ) : (
-            <LiveVideo room={inspection.livekit_room_name} inspectionId={inspection.id} wentLiveAt={inspection.went_live_at} />
-          )
-        ) : inspection.status === 'scheduled' ? (
-          <div className="archive-empty">
-            Not live yet. Start streaming in OBS with the credentials above — this will go live
-            automatically.
-          </div>
-        ) : recordingUrl ? (
-          <div className="video-box">
-            <video src={recordingUrl} controls playsInline />
-          </div>
-        ) : recordingPending ? (
-          <div className="archive-empty">
-            Recording is still processing — check back in a few minutes.
-          </div>
-        ) : (
-          <div className="archive-empty">No recording is available for this inspection.</div>
-        )}
+            <div className="archive-empty">No recording is available for this inspection.</div>
+          )}
 
-        {inspection.is_demo && !isStaff && (
-          <DemoSurveyorClaim
-            inspectionId={inspection.id}
-            currentSurveyorId={inspection.surveyor_id}
-            currentSurveyorName={surveyorName}
-            currentUserId={user.id}
-          />
-        )}
+          {inspection.is_demo && !isStaff && (
+            <DemoSurveyorClaim
+              inspectionId={inspection.id}
+              currentSurveyorId={inspection.surveyor_id}
+              currentSurveyorName={surveyorName}
+              currentUserId={user.id}
+            />
+          )}
 
-        {commsOpen && commsAccessAllowed && (
-          <RadioPanel
-            inspectionId={inspection.id}
-            heading={
-              inspection.is_demo
-                ? 'Voice Comms (Practice)'
-                : isStaff
-                ? 'Voice Comms (field radio)'
-                : inspection.open_comms
-                ? 'Voice Comms (Open -- Demo Mode)'
-                : 'Voice Comms with Inspector'
-            }
-          />
-        )}
+          {commsOpen && commsAccessAllowed && (
+            <RadioPanel
+              inspectionId={inspection.id}
+              heading={
+                inspection.is_demo
+                  ? 'Voice Comms (Practice)'
+                  : isStaff
+                  ? 'Voice Comms (field radio)'
+                  : inspection.open_comms
+                  ? 'Voice Comms (Open -- Demo Mode)'
+                  : 'Voice Comms with Inspector'
+              }
+            />
+          )}
+        </CommsMuteProvider>
 
         {isStaff && <CommsModeToggle inspectionId={inspection.id} openComms={inspection.open_comms} />}
 

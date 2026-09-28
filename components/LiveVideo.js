@@ -5,13 +5,18 @@ import { Room, RoomEvent, Track } from 'livekit-client';
 import {
   Camera,
   Maximize2,
+  MessageSquare,
+  Mic,
+  MicOff,
   Minimize2,
   PictureInPicture2,
   RefreshCw,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react';
 import { LIVEKIT_URL } from '../lib/supabase/config';
+import { useCommsMute } from './CommsMuteContext';
 
 // The field camera (OBS via WHIP ingress) joins the room too, as identity
 // `obs-{inspectionId}` -- see lib/livekit/ingress.js. It's the broadcaster,
@@ -45,10 +50,11 @@ function formatElapsed(from) {
 const QUALITY_LABEL = { excellent: 'Excellent', good: 'Good', poor: 'Poor', unknown: 'Unknown' };
 const QUALITY_CLASS = { excellent: 'q-excellent', good: 'q-good', poor: 'q-poor', unknown: 'q-unknown' };
 
-export default function LiveVideo({ room, inspectionId, wentLiveAt }) {
+export default function LiveVideo({ room, inspectionId, wentLiveAt, chat }) {
   const videoRef = useRef(null);
   const roomRef = useRef(null);
   const containerRef = useRef(null);
+  const commsMute = useCommsMute();
   const [status, setStatus] = useState('connecting'); // connecting | waiting | live | offline | error
   const [errorMsg, setErrorMsg] = useState('');
   const [viewers, setViewers] = useState([]); // [{ identity, name, joinedAt }]
@@ -56,6 +62,7 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPip, setIsPip] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [myQuality, setMyQuality] = useState('unknown');
   const [cameraQuality, setCameraQuality] = useState('unknown');
   const [snapping, setSnapping] = useState(false);
@@ -361,7 +368,41 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt }) {
               >
                 <Camera size={16} />
               </button>
+              {commsMute?.active && (
+                <button
+                  type="button"
+                  className="video-control-btn"
+                  onClick={() => commsMute.requestToggle()}
+                  aria-label={commsMute.muted ? 'Unmute your mic (voice comms)' : 'Mute your mic (voice comms)'}
+                  title={commsMute.muted ? 'Unmute your mic (voice comms)' : 'Mute your mic (voice comms)'}
+                >
+                  {commsMute.muted ? <MicOff size={16} /> : <Mic size={16} />}
+                </button>
+              )}
+              {chat && (
+                <button
+                  type="button"
+                  className={`video-control-btn ${chatOpen ? 'is-active' : ''}`}
+                  onClick={() => setChatOpen((o) => !o)}
+                  aria-label={chatOpen ? 'Close chat' : 'Open chat'}
+                  title={chatOpen ? 'Close chat' : 'Open chat'}
+                >
+                  <MessageSquare size={16} />
+                </button>
+              )}
               {snapMsg && <span className="snap-msg">{snapMsg}</span>}
+            </div>
+          )}
+
+          {chat && chatOpen && (
+            <div className="video-chat-overlay">
+              <div className="video-chat-overlay-header">
+                <span>Inspection Chat</span>
+                <button type="button" className="video-chat-overlay-close" onClick={() => setChatOpen(false)} aria-label="Close chat">
+                  <X size={15} />
+                </button>
+              </div>
+              <div className="video-chat-overlay-body">{chat}</div>
             </div>
           )}
         </div>
