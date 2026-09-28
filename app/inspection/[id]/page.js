@@ -215,6 +215,30 @@ async function InspectionDetailPageInner({ params }) {
   // something to hide.
   const commsAccessAllowed = isStaff || isSurveyor || inspection.open_comms || inspection.is_demo;
 
+  // Built once, rendered in exactly one place -- RadioPanel owns its own
+  // LiveKit connection, so mounting it twice would open two separate mic
+  // connections. When the video's actually live (and it's a real
+  // inspection, not the demo placeholder), it renders inside LiveVideo's
+  // sidebar, under the viewer list, per the "move it into that column"
+  // request. Otherwise (scheduled/not-yet-live, or the demo) it falls back
+  // to its old standalone spot below the video.
+  const radioPanelElement =
+    commsOpen && commsAccessAllowed ? (
+      <RadioPanel
+        inspectionId={inspection.id}
+        heading={
+          inspection.is_demo
+            ? 'Voice Comms (Practice)'
+            : isStaff
+            ? 'Voice Comms (field radio)'
+            : inspection.open_comms
+            ? 'Voice Comms (Open -- Demo Mode)'
+            : 'Voice Comms with Inspector'
+        }
+      />
+    ) : null;
+  const radioPanelInSidebar = inspection.status === 'live' && !inspection.is_demo;
+
   // Scoped to this inspection's company, same pool NewInspectionForm draws
   // from when creating one -- not editable here (see EditInspectionForm),
   // just needed to populate the asset dropdown.
@@ -274,6 +298,7 @@ async function InspectionDetailPageInner({ params }) {
                     canSend={inspection.status === 'live'}
                   />
                 }
+                radioPanel={radioPanelElement}
               />
             )
           ) : inspection.status === 'scheduled' ? (
@@ -302,20 +327,7 @@ async function InspectionDetailPageInner({ params }) {
             />
           )}
 
-          {commsOpen && commsAccessAllowed && (
-            <RadioPanel
-              inspectionId={inspection.id}
-              heading={
-                inspection.is_demo
-                  ? 'Voice Comms (Practice)'
-                  : isStaff
-                  ? 'Voice Comms (field radio)'
-                  : inspection.open_comms
-                  ? 'Voice Comms (Open -- Demo Mode)'
-                  : 'Voice Comms with Inspector'
-              }
-            />
-          )}
+          {!radioPanelInSidebar && radioPanelElement}
         </CommsMuteProvider>
 
         {isStaff && <CommsModeToggle inspectionId={inspection.id} openComms={inspection.open_comms} />}

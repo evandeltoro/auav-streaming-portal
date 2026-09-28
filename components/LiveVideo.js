@@ -51,7 +51,7 @@ function formatElapsed(from) {
 const QUALITY_LABEL = { excellent: 'Excellent', good: 'Good', poor: 'Poor', unknown: 'Unknown' };
 const QUALITY_CLASS = { excellent: 'q-excellent', good: 'q-good', poor: 'q-poor', unknown: 'q-unknown' };
 
-export default function LiveVideo({ room, inspectionId, wentLiveAt, chat }) {
+export default function LiveVideo({ room, inspectionId, wentLiveAt, chat, radioPanel }) {
   const videoRef = useRef(null);
   const roomRef = useRef(null);
   const containerRef = useRef(null);
@@ -436,21 +436,24 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt, chat }) {
         </div>
       </div>
 
-      <aside className="viewer-panel">
-        <div className="viewer-panel-title">
-          {viewers.length} other{viewers.length === 1 ? '' : 's'} watching
-        </div>
-        {viewers.length === 0 ? (
-          <div className="viewer-empty">No one else is watching yet.</div>
-        ) : (
-          viewers.map((v) => (
-            <div className="viewer-row" key={v.identity}>
-              <span>{v.name}</span>
-              <span>{formatElapsed(v.joinedAt)}</span>
-            </div>
-          ))
-        )}
-      </aside>
+      <div className="stream-sidebar">
+        <aside className="viewer-panel">
+          <div className="viewer-panel-title">
+            {viewers.length} other{viewers.length === 1 ? '' : 's'} watching
+          </div>
+          {viewers.length === 0 ? (
+            <div className="viewer-empty">No one else is watching yet.</div>
+          ) : (
+            viewers.map((v) => (
+              <div className="viewer-row" key={v.identity}>
+                <span>{v.name}</span>
+                <span>{formatElapsed(v.joinedAt)}</span>
+              </div>
+            ))
+          )}
+        </aside>
+        {radioPanel}
+      </div>
     </div>
   );
 }
