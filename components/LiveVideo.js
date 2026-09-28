@@ -11,6 +11,7 @@ import {
   Minimize2,
   PictureInPicture2,
   RefreshCw,
+  Users,
   Volume2,
   VolumeX,
   X,
@@ -65,6 +66,7 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt, chat, radioP
   const [isPip, setIsPip] = useState(false);
   const [muted, setMuted] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
+  const [viewersOpen, setViewersOpen] = useState(false);
   const [myQuality, setMyQuality] = useState('unknown');
   const [cameraQuality, setCameraQuality] = useState('unknown');
   const [snapping, setSnapping] = useState(false);
@@ -321,11 +323,49 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt, chat, radioP
 
           {status === 'live' && (
             <div className="video-top-bar">
-              {liveElapsed && <span className="live-elapsed-badge">LIVE {liveElapsed}</span>}
+              <div className="video-top-bar-left">
+                {liveElapsed && <span className="live-elapsed-badge">LIVE {liveElapsed}</span>}
+                {/* Used to be a standalone panel in the sidebar -- moved here
+                   so the sidebar can just be Voice Comms, keeping that
+                   column short enough that Chat lands right under the video
+                   instead of trailing a tall viewer list. */}
+                <button
+                  type="button"
+                  className="viewer-count-chip"
+                  onClick={() => setViewersOpen((o) => !o)}
+                  aria-label="Who's watching"
+                >
+                  <Users size={12} />
+                  {viewers.length} watching
+                </button>
+              </div>
               <div className="quality-badges" title={`Your connection: ${QUALITY_LABEL[myQuality]} · Field camera: ${QUALITY_LABEL[cameraQuality]}`}>
                 <span className={`quality-chip ${QUALITY_CLASS[myQuality]}`}>You: {QUALITY_LABEL[myQuality]}</span>
                 <span className={`quality-chip ${QUALITY_CLASS[cameraQuality]}`}>Camera: {QUALITY_LABEL[cameraQuality]}</span>
               </div>
+            </div>
+          )}
+
+          {status === 'live' && viewersOpen && (
+            <div className="viewer-dropdown">
+              <div className="viewer-dropdown-header">
+                <span>
+                  {viewers.length} other{viewers.length === 1 ? '' : 's'} watching
+                </span>
+                <button type="button" className="viewer-dropdown-close" onClick={() => setViewersOpen(false)} aria-label="Close">
+                  <X size={13} />
+                </button>
+              </div>
+              {viewers.length === 0 ? (
+                <div className="viewer-empty">No one else is watching yet.</div>
+              ) : (
+                viewers.map((v) => (
+                  <div className="viewer-row" key={v.identity}>
+                    <span>{v.name}</span>
+                    <span>{formatElapsed(v.joinedAt)}</span>
+                  </div>
+                ))
+              )}
             </div>
           )}
 
@@ -436,24 +476,7 @@ export default function LiveVideo({ room, inspectionId, wentLiveAt, chat, radioP
         </div>
       </div>
 
-      <div className="stream-sidebar">
-        <aside className="viewer-panel">
-          <div className="viewer-panel-title">
-            {viewers.length} other{viewers.length === 1 ? '' : 's'} watching
-          </div>
-          {viewers.length === 0 ? (
-            <div className="viewer-empty">No one else is watching yet.</div>
-          ) : (
-            viewers.map((v) => (
-              <div className="viewer-row" key={v.identity}>
-                <span>{v.name}</span>
-                <span>{formatElapsed(v.joinedAt)}</span>
-              </div>
-            ))
-          )}
-        </aside>
-        {radioPanel}
-      </div>
+      <div className="stream-sidebar">{radioPanel}</div>
     </div>
   );
 }

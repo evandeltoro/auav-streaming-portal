@@ -440,6 +440,62 @@ h1 { font-size: 1.3rem; margin: 0 0 4px; color: var(--text-primary); }
   gap: 8px;
   flex-wrap: wrap;
 }
+.video-top-bar-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* "N watching" used to be a standalone sidebar panel -- now a chip here
+   that opens a dropdown, which frees the sidebar to be Voice Comms only. */
+.viewer-count-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.viewer-count-chip:hover { background: rgba(0, 0, 0, 0.78); }
+
+.viewer-dropdown {
+  position: absolute;
+  top: 46px;
+  left: 12px;
+  width: 220px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: rgba(20, 20, 22, 0.92);
+  backdrop-filter: blur(6px);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  z-index: 6;
+  padding: 10px;
+}
+.viewer-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #fff;
+  margin-bottom: 8px;
+}
+.viewer-dropdown-close {
+  background: none;
+  border: none;
+  color: #fff;
+  opacity: 0.75;
+  cursor: pointer;
+  display: flex;
+  padding: 2px;
+}
+.viewer-dropdown-close:hover { opacity: 1; }
+.viewer-dropdown .viewer-row { color: rgba(255, 255, 255, 0.85); border-bottom-color: rgba(255, 255, 255, 0.15); font-size: 0.78rem; }
+.viewer-dropdown .viewer-row:last-child { border-bottom: none; }
+.viewer-dropdown .viewer-empty { color: rgba(255, 255, 255, 0.6); font-size: 0.8rem; }
 
 .live-elapsed-badge {
   background: rgba(0, 0, 0, 0.6);
